@@ -1,0 +1,5 @@
+interface:
+  display_name: UI UX Pro Max
+  short_description: UI/UX design intelligence for frontend implementation and review.
+  icon: paintbrush
+  accent_color: "#4F46E5"

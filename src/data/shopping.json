@@ -1,0 +1,58 @@
+[
+  {
+    "id": "shopping-001",
+    "module": "shopping",
+    "name": "冻干草莓酸奶块",
+    "category": "零食",
+    "platform": "淘宝",
+    "price": 29,
+    "status": "回购",
+    "tags": ["低糖", "办公室", "囤货"],
+    "note": "口感脆，适合作为下午茶零食，冷藏后更好吃。",
+    "source": "自己买过",
+    "createdAt": "2026-03-15",
+    "updatedAt": "2026-03-28"
+  },
+  {
+    "id": "shopping-002",
+    "module": "shopping",
+    "name": "65W 氮化镓充电器",
+    "category": "数码",
+    "platform": "京东",
+    "price": 99,
+    "status": "推荐",
+    "tags": ["轻便", "双口", "出差"],
+    "note": "手机和电脑都能充，体积小，带出门方便。",
+    "source": "B站测评",
+    "createdAt": "2026-03-20",
+    "updatedAt": "2026-03-29"
+  },
+  {
+    "id": "shopping-003",
+    "module": "shopping",
+    "name": "抗菌收纳箱",
+    "category": "日用百货",
+    "platform": "拼多多",
+    "price": 42,
+    "status": "在用",
+    "tags": ["收纳", "搬家", "高性价比"],
+    "note": "透明可视，尺寸适合放在衣柜上层或床底。",
+    "source": "自己买过",
+    "createdAt": "2026-03-11",
+    "updatedAt": "2026-03-21"
+  },
+  {
+    "id": "shopping-004",
+    "module": "shopping",
+    "name": "基础棉质白 T",
+    "category": "服饰",
+    "platform": "天猫",
+    "price": 69,
+    "status": "收藏",
+    "tags": ["基础款", "夏季", "重复购买"],
+    "note": "版型稳定，适合做衣橱常备，不容易踩版型问题。",
+    "source": "自己筛选店铺",
+    "createdAt": "2026-03-08",
+    "updatedAt": "2026-03-18"
+  }
+]
