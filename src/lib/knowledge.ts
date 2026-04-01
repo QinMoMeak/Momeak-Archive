@@ -51,7 +51,13 @@ function getExcerpt(value: string, maxLength = 80) {
 export function getPrimaryMeta(entry: KnowledgeEntry) {
   switch (entry.module) {
     case "offline":
-      return entry.location;
+      return (
+        entry.formattedAddress ||
+        entry.locationText ||
+        entry.location ||
+        entry.city ||
+        entry.province
+      );
     case "shopping":
       return entry.platform || "未填写";
     case "websites":
@@ -186,6 +192,11 @@ export function matchesSearch(entry: KnowledgeEntry, search: string) {
     "aiSuggestions" in entry ? entry.aiSuggestions : "",
     "suggestedTargetModule" in entry ? entry.suggestedTargetModule : "",
     "suggestedCategory" in entry ? entry.suggestedCategory : "",
+    "formattedAddress" in entry ? (entry.formattedAddress ?? "") : "",
+    "locationText" in entry ? (entry.locationText ?? "") : "",
+    "province" in entry ? (entry.province ?? "") : "",
+    "city" in entry ? (entry.city ?? "") : "",
+    "district" in entry ? (entry.district ?? "") : "",
   ]
     .join(" ")
     .toLocaleLowerCase();
@@ -223,6 +234,19 @@ export function createDraftFromEntry(
     markdownContent,
     source: entry.source,
     location: entry.module === "offline" ? entry.location : "",
+    locationText: entry.module === "offline" ? entry.locationText ?? entry.location : "",
+    formattedAddress: entry.module === "offline" ? entry.formattedAddress ?? "" : "",
+    province: entry.module === "offline" ? entry.province ?? "" : "",
+    city: entry.module === "offline" ? entry.city ?? "" : "",
+    district: entry.module === "offline" ? entry.district ?? "" : "",
+    adcode: entry.module === "offline" ? entry.adcode ?? "" : "",
+    lng:
+      entry.module === "offline" && typeof entry.lng === "number" ? String(entry.lng) : "",
+    lat:
+      entry.module === "offline" && typeof entry.lat === "number" ? String(entry.lat) : "",
+    locationSource: entry.module === "offline" ? entry.locationSource ?? "" : "",
+    locationAccuracy: entry.module === "offline" ? entry.locationAccuracy ?? "" : "",
+    locationRectangle: entry.module === "offline" ? entry.locationRectangle ?? "" : "",
     rating: entry.module === "offline" && entry.rating !== null ? String(entry.rating) : "",
     platform: entry.module === "shopping" ? entry.platform : "",
     price: entry.module === "shopping" && entry.price !== null ? String(entry.price) : "",
@@ -253,6 +277,17 @@ export function getEmptyDraft(moduleId: ModuleId): QuickAddDraft {
     markdownContent: "",
     source: "",
     location: "",
+    locationText: "",
+    formattedAddress: "",
+    province: "",
+    city: "",
+    district: "",
+    adcode: "",
+    lng: "",
+    lat: "",
+    locationSource: "",
+    locationAccuracy: "",
+    locationRectangle: "",
     rating: "",
     platform: "",
     price: "",
@@ -296,6 +331,11 @@ export function mergeDraftWithAiResult(
   }
 
   nextDraft.tags = nextTags.join(", ");
+
+  if (!nextDraft.locationText && nextDraft.location) {
+    nextDraft.locationText = nextDraft.location;
+  }
+
   return nextDraft;
 }
 

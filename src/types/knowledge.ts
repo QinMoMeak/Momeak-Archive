@@ -31,6 +31,17 @@ export type EntryBase = {
 export type OfflineEntry = EntryBase & {
   module: "offline";
   location: string;
+  locationText?: string;
+  formattedAddress?: string;
+  province?: string;
+  city?: string;
+  district?: string;
+  adcode?: string;
+  lng?: number | null;
+  lat?: number | null;
+  locationSource?: string;
+  locationAccuracy?: string;
+  locationRectangle?: string;
   rating: number | null;
 };
 
@@ -103,6 +114,17 @@ export type QuickAddDraft = {
   markdownContent: string;
   source: string;
   location: string;
+  locationText: string;
+  formattedAddress: string;
+  province: string;
+  city: string;
+  district: string;
+  adcode: string;
+  lng: string;
+  lat: string;
+  locationSource: string;
+  locationAccuracy: string;
+  locationRectangle: string;
   rating: string;
   platform: string;
   price: string;

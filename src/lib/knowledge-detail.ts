@@ -1,6 +1,6 @@
 import { moduleDefinitions } from "@/data/knowledge";
 import { formatDate, formatPrice } from "@/lib/knowledge";
-import type { DetailField, KnowledgeEntry } from "@/types/knowledge";
+import type { DetailField, KnowledgeEntry, OfflineEntry } from "@/types/knowledge";
 
 const markdownModules = import.meta.glob("../../content/**/*.md", {
   query: "?raw",
@@ -40,6 +40,35 @@ function getTagSummary(entry: KnowledgeEntry) {
   return entry.tags.slice(0, 3).join(" / ");
 }
 
+function getOfflineSourceLabel(entry: OfflineEntry) {
+  switch (entry.locationSource) {
+    case "browser_geolocation":
+      return "浏览器定位";
+    case "ip_fallback":
+      return "IP 兜底定位";
+    case "geocode":
+      return "地址解析";
+    case "manual":
+      return "手动录入";
+    default:
+      return "未标记";
+  }
+}
+
+function getOfflineAccuracyLabel(entry: OfflineEntry) {
+  return entry.locationAccuracy === "approximate" ? "近似位置" : "精确位置";
+}
+
+function getCoordinateLabel(entry: OfflineEntry) {
+  if (typeof entry.lng !== "number" || typeof entry.lat !== "number") {
+    return entry.locationAccuracy === "approximate"
+      ? "IP 粗定位未保存精确坐标"
+      : "未记录坐标";
+  }
+
+  return `${entry.lng.toFixed(6)}, ${entry.lat.toFixed(6)}`;
+}
+
 function getBasicInfo(entry: KnowledgeEntry): DetailField[] {
   const fields: DetailField[] = [
     { label: "分类", value: entry.category },
@@ -48,10 +77,21 @@ function getBasicInfo(entry: KnowledgeEntry): DetailField[] {
 
   if (entry.module === "offline") {
     fields.push(
-      { label: "地点", value: entry.location },
+      {
+        label: "地点文本",
+        value: entry.locationText || entry.location || "未填写",
+      },
+      {
+        label: "详细地址",
+        value: entry.formattedAddress || entry.location || "未填写",
+      },
       {
         label: "评分",
         value: entry.rating === null ? "未评分" : entry.rating.toFixed(1),
+      },
+      {
+        label: "定位精度",
+        value: getOfflineAccuracyLabel(entry),
       },
     );
   }
@@ -95,6 +135,34 @@ function getExtensionInfo(entry: KnowledgeEntry): DetailField[] {
   ];
 
   if (entry.module === "offline") {
+    fields.push(
+      {
+        label: "定位来源",
+        value: getOfflineSourceLabel(entry),
+      },
+      {
+        label: "坐标",
+        value: getCoordinateLabel(entry),
+      },
+      {
+        label: "省市区",
+        value:
+          [entry.province, entry.city, entry.district].filter(Boolean).join(" / ") ||
+          "未填写",
+      },
+      {
+        label: "adcode",
+        value: entry.adcode || "未填写",
+      },
+    );
+
+    if (entry.locationRectangle) {
+      fields.push({
+        label: "IP 近似范围",
+        value: entry.locationRectangle,
+      });
+    }
+
     fields.push({
       label: "推荐强度",
       value:
@@ -117,10 +185,7 @@ function getExtensionInfo(entry: KnowledgeEntry): DetailField[] {
     fields.push(
       { label: "AI 摘要", value: entry.aiSummary || "尚未生成" },
       { label: "AI 建议", value: entry.aiSuggestions || "尚未生成" },
-      {
-        label: "建议分类",
-        value: entry.suggestedCategory || "未建议",
-      },
+      { label: "建议分类", value: entry.suggestedCategory || "未建议" },
       {
         label: "置信度",
         value:
@@ -139,7 +204,7 @@ function getSourceAndTime(entry: KnowledgeEntry, hasMarkdown: boolean): DetailFi
     { label: "更新时间", value: formatDate(entry.updatedAt) },
     {
       label: "正文来源",
-      value: hasMarkdown ? "Markdown 文档" : "JSON 备注",
+      value: hasMarkdown ? "Markdown 正文" : "JSON 备注",
     },
   ];
 }

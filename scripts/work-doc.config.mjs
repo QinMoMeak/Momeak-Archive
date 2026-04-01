@@ -1,7 +1,8 @@
 export const workDocConfig = {
   docsDirName: "docs",
   fileSuffix: "change-log",
-  baseVersion: "0.1.15",
+  baseVersion: "1.0.0",
   lockVersionSeriesToBase: true,
+  startAtBaseWhenNoHistory: true,
   defaultBump: "patch",
 };

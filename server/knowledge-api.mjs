@@ -36,6 +36,11 @@ import {
   uploadBackupToWebdav,
 } from "./webdav/client.mjs";
 import {
+  resolveAddressText,
+  resolveCurrentPosition,
+  resolveIpFallback,
+} from "./location/amap-location.mjs";
+import {
   isDefaultAdminPassword,
   knowledgeAdminPassword,
   sessionDurationMs,
@@ -194,6 +199,16 @@ function parseSelectedModulesHeader(request) {
     .filter(Boolean);
 }
 
+function getClientIp(request) {
+  const forwardedFor = request.headers["x-forwarded-for"];
+
+  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
+    return forwardedFor.split(",")[0].trim();
+  }
+
+  return request.socket.remoteAddress ?? "";
+}
+
 const server = http.createServer(async (request, response) => {
   if (!request.url) {
     sendJson(response, 400, { error: "\u8bf7\u6c42\u5730\u5740\u65e0\u6548\u3002" });
@@ -235,6 +250,31 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/ai/settings") {
       requireAdmin(request);
       sendJson(response, 200, await getAiSettingsView());
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/location/reverse-geocode") {
+      requireAdmin(request);
+      const rawBody = await readBody(request);
+      const body = JSON.parse(rawBody || "{}");
+      const result = await resolveCurrentPosition(body);
+      sendJson(response, 200, { location: result });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/location/geocode") {
+      requireAdmin(request);
+      const rawBody = await readBody(request);
+      const body = JSON.parse(rawBody || "{}");
+      const result = await resolveAddressText(body);
+      sendJson(response, 200, { location: result });
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/location/ip-fallback") {
+      requireAdmin(request);
+      const result = await resolveIpFallback(getClientIp(request));
+      sendJson(response, 200, { location: result });
       return;
     }
 

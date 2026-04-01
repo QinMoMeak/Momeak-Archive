@@ -5,7 +5,25 @@ import { getImportTemplateContext, moduleLabels } from "./template-presets.mjs";
 const moduleFieldGuides = {
   offline: {
     required: ["id", "module", "name", "category", "status", "location"],
-    optional: ["tags", "note", "source", "createdAt", "updatedAt", "rating"],
+    optional: [
+      "tags",
+      "note",
+      "source",
+      "createdAt",
+      "updatedAt",
+      "rating",
+      "locationText",
+      "formattedAddress",
+      "province",
+      "city",
+      "district",
+      "adcode",
+      "lng",
+      "lat",
+      "locationSource",
+      "locationAccuracy",
+      "locationRectangle",
+    ],
   },
   shopping: {
     required: ["id", "module", "name", "category", "status"],

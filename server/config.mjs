@@ -86,3 +86,11 @@ export const readerMaxContentChars = Number(
 export const readerMinUsefulChars = Number(
   resolveValue("JINA_READER_MIN_USEFUL_CHARS", String(400)),
 );
+export const amapWebServiceKey = resolveValue("AMAP_WEB_SERVICE_KEY", "");
+export const amapWebServiceBaseUrl = resolveValue(
+  "AMAP_WEB_SERVICE_BASE_URL",
+  "https://restapi.amap.com",
+);
+export const amapTimeoutMs = Number(
+  resolveValue("AMAP_TIMEOUT_MS", String(1000 * 15)),
+);

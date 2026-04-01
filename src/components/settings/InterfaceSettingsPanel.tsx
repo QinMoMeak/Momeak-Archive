@@ -29,7 +29,7 @@ const triggerClassName =
   "flex h-11 items-center rounded-full border border-slate-200/80 bg-white/92 px-3 text-sm text-slate-700 shadow-[0_14px_36px_-30px_rgba(15,23,42,0.45)] transition hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 dark:border-slate-700/80 dark:bg-slate-900/92 dark:text-slate-100 dark:hover:border-slate-600 dark:hover:bg-slate-900";
 
 const menuClassName =
-  "absolute left-0 top-[calc(100%+10px)] z-20 min-w-[170px] overflow-hidden rounded-[18px] border border-slate-200/80 bg-white/96 p-1.5 shadow-[0_26px_70px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800/90 dark:bg-slate-950/96 dark:shadow-[0_30px_70px_-42px_rgba(2,6,23,0.92)]";
+  "absolute bottom-[calc(100%+10px)] left-0 z-20 min-w-[170px] overflow-hidden rounded-[18px] border border-slate-200/80 bg-white/96 p-1.5 shadow-[0_26px_70px_-40px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800/90 dark:bg-slate-950/96 dark:shadow-[0_30px_70px_-42px_rgba(2,6,23,0.92)]";
 
 const utilityTriggerClassName =
   "flex h-11 items-center justify-center rounded-full border border-slate-200/80 bg-white/92 text-sm text-slate-700 shadow-[0_14px_36px_-30px_rgba(15,23,42,0.45)] transition hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-55 dark:border-slate-700/80 dark:bg-slate-900/92 dark:text-slate-100 dark:hover:border-slate-600 dark:hover:bg-slate-900";

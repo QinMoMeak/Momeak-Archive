@@ -266,6 +266,17 @@ function normalizeDraft(moduleId, draft) {
     markdownContent: cleanMultilineText(draft.markdownContent),
     source: cleanInlineText(draft.source) || "快速新增",
     location: cleanInlineText(draft.location),
+    locationText: cleanInlineText(draft.locationText),
+    formattedAddress: cleanInlineText(draft.formattedAddress),
+    province: cleanInlineText(draft.province),
+    city: cleanInlineText(draft.city),
+    district: cleanInlineText(draft.district),
+    adcode: cleanInlineText(draft.adcode),
+    lng: parseNumber(draft.lng),
+    lat: parseNumber(draft.lat),
+    locationSource: cleanInlineText(draft.locationSource) || "manual",
+    locationAccuracy: cleanInlineText(draft.locationAccuracy) || "exact",
+    locationRectangle: cleanInlineText(draft.locationRectangle),
     rating: parseNumber(draft.rating),
     platform: cleanInlineText(draft.platform),
     price: parseNumber(draft.price),
@@ -307,6 +318,15 @@ function normalizeDraft(moduleId, draft) {
   }
 
   if (moduleId === "offline" && !normalized.location) {
+    normalized.location =
+      normalized.locationText ||
+      normalized.formattedAddress ||
+      [normalized.city, normalized.district, normalized.province]
+        .filter(Boolean)
+        .join(" ");
+  }
+
+  if (moduleId === "offline" && !normalized.location) {
     throw new Error("线下好店至少需要填写地点。");
   }
 
@@ -343,6 +363,17 @@ function buildEntry(moduleId, draft, entryId) {
       ...baseEntry,
       module: "offline",
       location: draft.location,
+      locationText: draft.locationText,
+      formattedAddress: draft.formattedAddress,
+      province: draft.province,
+      city: draft.city,
+      district: draft.district,
+      adcode: draft.adcode,
+      lng: draft.lng,
+      lat: draft.lat,
+      locationSource: draft.locationSource,
+      locationAccuracy: draft.locationAccuracy,
+      locationRectangle: draft.locationRectangle,
       rating: draft.rating,
     };
   }

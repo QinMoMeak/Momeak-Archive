@@ -37,7 +37,18 @@ const moduleExampleEntries = {
     source: "示例模板",
     createdAt: "2026-04-01",
     updatedAt: "2026-04-01",
-    location: "杭州 西湖附近",
+    location: "杭州西湖区",
+    locationText: "杭州西湖区龙井路附近",
+    formattedAddress: "浙江省杭州市西湖区龙井路 1 号",
+    province: "浙江省",
+    city: "杭州市",
+    district: "西湖区",
+    adcode: "330106",
+    lng: 120.129252,
+    lat: 30.241728,
+    locationSource: "geocode",
+    locationAccuracy: "exact",
+    locationRectangle: "",
     rating: 4.5,
   },
   shopping: {
@@ -81,11 +92,10 @@ const moduleExampleEntries = {
     source: "示例模板",
     createdAt: "2026-04-01",
     updatedAt: "2026-04-01",
-    rawContent:
-      "这里可以是一段博客摘录、商品评价、聊天记录、截图说明或以后再整理的临时想法。",
+    rawContent: "这里可以是一段博客摘录、商品评价、聊天记录或截图说明。",
     rawContentType: "text",
-    aiSummary: "一条示例待处理内容，用来展示原始内容和 AI 补充字段的格式。",
-    aiSuggestions: "建议在补充来源后判断是否转入其他正式模块。",
+    aiSummary: "一条用于演示待处理结构的示例记录。",
+    aiSuggestions: "建议补充来源后，再决定是否转入其他正式模块。",
     suggestedTargetModule: "inbox",
     suggestedCategory: "待整理",
     confidence: 0.74,
@@ -95,8 +105,8 @@ const moduleExampleEntries = {
 const moduleExampleMarkdown = {
   offline: `# 推荐理由
 
-- 这里填写更完整的体验记录、交通方式、适合人群等信息。
-- 如果没有长内容，也可以只保留 data/offline.json 里的 note 字段。`,
+- 这里填写更完整的体验记录、交通方式和适合人群。
+- 如果没有长说明，也可以只保留 data/offline.json 里的 note 字段。`,
   shopping: `# 使用说明
 
 - 这里可以写优点、缺点、适合场景和规格信息。
@@ -106,6 +116,7 @@ const moduleExampleMarkdown = {
 这是一个示例网站条目的长说明。
 
 ## 网站用途
+
 - 说明网站主要解决什么问题
 - 适合什么使用场景
 - 有哪些值得长期记录的特点
@@ -116,6 +127,7 @@ const moduleExampleMarkdown = {
 这里可以继续整理这条待处理内容的上下文、AI 分析结果和后续动作。
 
 ## 后续建议
+
 - 是否值得转入正式模块
 - 还缺哪些来源或背景信息
 - 下一步应该整理什么`,
@@ -127,18 +139,10 @@ function pickFirstValue(values, fallback) {
 
 function pickStatuses(moduleId, entries) {
   const values = Array.from(
-    new Set(
-      (entries ?? [])
-        .map((entry) => String(entry?.status ?? "").trim())
-        .filter(Boolean),
-    ),
+    new Set((entries ?? []).map((entry) => String(entry?.status ?? "").trim()).filter(Boolean)),
   );
 
-  if (values.length === 0) {
-    return [moduleFallbackStatuses[moduleId]];
-  }
-
-  return values;
+  return values.length > 0 ? values : [moduleFallbackStatuses[moduleId]];
 }
 
 function clone(value) {
@@ -184,14 +188,8 @@ export async function createExampleTemplatePreset(selectedModules) {
 
   for (const moduleId of selectedModules) {
     const exampleEntry = clone(moduleExampleEntries[moduleId]);
-    exampleEntry.category = pickFirstValue(
-      categoriesByModule[moduleId],
-      exampleEntry.category,
-    );
-    exampleEntry.status = pickFirstValue(
-      statusesByModule[moduleId],
-      exampleEntry.status,
-    );
+    exampleEntry.category = pickFirstValue(categoriesByModule[moduleId], exampleEntry.category);
+    exampleEntry.status = pickFirstValue(statusesByModule[moduleId], exampleEntry.status);
     entriesByModule[moduleId] = [exampleEntry];
     markdownByModule[moduleId] = {
       [exampleEntry.id]: moduleExampleMarkdown[moduleId],

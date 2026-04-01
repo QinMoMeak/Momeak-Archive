@@ -159,7 +159,9 @@ async function getNextVersion(bumpType) {
     : existing;
 
   if (scopedExisting.length === 0) {
-    return bumpVersion(baseVersion, bumpType);
+    return workDocConfig.startAtBaseWhenNoHistory
+      ? baseVersion
+      : bumpVersion(baseVersion, bumpType);
   }
 
   const latest = scopedExisting

@@ -72,25 +72,6 @@
     "updatedAt": "2026-03-18"
   },
   {
-    "id": "shopping-005",
-    "module": "shopping",
-    "name": "金寶薄荷水",
-    "category": "日用百货",
-    "status": "推荐",
-    "tags": [
-      "广东老牌子",
-      "去味剂",
-      "拖地",
-      "下水道"
-    ],
-    "note": "老牌广东去味剂，可用于兑水拖地或去除下水道异味。",
-    "source": "广告/童年记忆",
-    "createdAt": "2026-03-31",
-    "updatedAt": "2026-03-31",
-    "platform": "拼多多",
-    "price": null
-  },
-  {
     "id": "shopping-006",
     "module": "shopping",
     "name": "得力s95子弹头0.5mm黑色签字笔",

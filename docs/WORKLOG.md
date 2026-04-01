@@ -13,6 +13,18 @@
 验证：
 - `npm run build` 通过。
 
+## 2026-04-01 左下角设置菜单改为向上弹出
+
+目标：
+- 让左下角语言和主题切换菜单在按钮上方展开，不压到底部区域。
+
+主要改动：
+- 调整 `InterfaceSettingsPanel` 中下拉菜单的定位样式，从向下展开改为向上弹出。
+- 保留原有菜单内容、交互和按钮布局不变。
+
+验证：
+- `npm run build` 通过。
+
 ## 2026-04-01 GitHub Pages 接入
 
 目标：
@@ -201,3 +213,45 @@
 
 验证：
 - `npm run build` 通过。
+
+## 2026-04-01 线下好店接入高德地点增强
+
+目标：
+- 为 `offline` 模块增加地点增强能力，支持精确定位、逆地理编码、地址解析和 IP 兜底定位。
+
+主要改动：
+- 为 `offline` 条目补充 `locationText / formattedAddress / province / city / district / adcode / lng / lat / locationSource / locationAccuracy / locationRectangle` 字段。
+- 新增服务端高德地图封装，分别处理逆地理编码、地址转坐标和 IP 粗定位，避免在前端暴露 Key。
+- 新增 `/api/location/reverse-geocode`、`/api/location/geocode`、`/api/location/ip-fallback` 接口，并通过 Vite 代理接入本地开发链路。
+- 在线下好店新增/编辑弹窗中加入地点区块，支持“获取当前位置”和“解析地点”，并明确区分精确位置与近似位置。
+- 详情抽屉、导入模板示例和 AI 导入 Prompt 已兼容新的地点字段。
+
+验证：
+- `npm run build` 通过。
+- `node --check server/location/amap-client.mjs` 通过。
+- `node --check server/location/amap-location.mjs` 通过。
+
+## 2026-04-01 新增本地环境变量模板
+
+目标：
+- 为高德地图地点增强补充本地环境变量入口，方便直接配置管理员密码和 AMap Key。
+
+主要改动：
+- 在仓库根目录新增 `.env.local` 模板。
+- 预置 `KNOWLEDGE_ADMIN_PASSWORD` 与 `AMAP_WEB_SERVICE_KEY` 两个常用配置项。
+
+验证：
+- 文件已创建，可直接填写后重启本地服务生效。
+
+## 2026-04-01 工作说明版本切换到 1.0.x
+
+目标：
+- 让后续自动生成的工作说明文档从 `1.0.0` 开始进入新序列。
+
+主要改动：
+- 将工作说明基线版本调整为 `1.0.0`。
+- 生成脚本新增“新序列首次直接使用基线版本”逻辑，避免第一次生成跳成 `1.0.1`。
+- 保持旧的 `0.1.x` 文档不影响新的 `1.0.x` 序列递增。
+
+验证：
+- 已生成 `docs/1.0.0-change-log.md`。

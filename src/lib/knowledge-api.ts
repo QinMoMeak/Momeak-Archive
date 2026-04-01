@@ -25,10 +25,16 @@ import type {
   SaveKnowledgeEntryResponse,
   UpdateKnowledgeEntryPayload,
 } from "@/types/knowledge";
+import type {
+  GeocodeAddressPayload,
+  OfflineLocationResult,
+  ReverseGeocodePayload,
+} from "@/types/location";
 
 const knowledgeApiBase = "/api/knowledge";
 const authApiBase = "/api/auth";
 const aiApiBase = "/api/ai";
+const locationApiBase = "/api/location";
 
 async function readErrorMessage(response: Response) {
   try {
@@ -344,4 +350,53 @@ export async function resetAiSettings() {
   }
 
   return (await response.json()) as AiSettingsView;
+}
+
+export async function reverseGeocodeOfflineLocation(payload: ReverseGeocodePayload) {
+  const response = await fetch(`${locationApiBase}/reverse-geocode`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  const data = (await response.json()) as { location: OfflineLocationResult };
+  return data.location;
+}
+
+export async function geocodeOfflineLocation(payload: GeocodeAddressPayload) {
+  const response = await fetch(`${locationApiBase}/geocode`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  const data = (await response.json()) as { location: OfflineLocationResult };
+  return data.location;
+}
+
+export async function fetchOfflineIpFallbackLocation() {
+  const response = await fetch(`${locationApiBase}/ip-fallback`, {
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  const data = (await response.json()) as { location: OfflineLocationResult };
+  return data.location;
 }
