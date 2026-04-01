@@ -24,6 +24,22 @@ const moduleFieldGuides = {
       "purpose",
     ],
   },
+  inbox: {
+    required: ["id", "module", "name", "category", "status", "rawContent"],
+    optional: [
+      "rawContentType",
+      "tags",
+      "note",
+      "source",
+      "aiSummary",
+      "aiSuggestions",
+      "suggestedTargetModule",
+      "suggestedCategory",
+      "confidence",
+      "createdAt",
+      "updatedAt",
+    ],
+  },
 };
 
 function formatList(items) {
@@ -39,9 +55,15 @@ function buildModuleInstructions(selectedModules, categoriesByModule, statusesBy
           ? [
               "如果原始数据中有网址或域名，必须优先提取到 domain。",
               "note 或 Markdown 要重点整理网站内容、用途、适用场景、特点。",
-              "信息不足时不要编造网站用途、可访问性或其他结论。",
+              "信息不足时不要编造网站用途或可访问性。",
             ].join("\n")
-          : "";
+          : moduleId === "inbox"
+            ? [
+                "rawContent 必须尽量保留用户原始输入，不要先重写再保存。",
+                "如果没有标题，可以根据 rawContent 生成简短标题。",
+                "待处理模块优先宽容录入，不要强行编造成熟知识条目。",
+              ].join("\n")
+            : "";
 
       return `模块：${moduleLabels[moduleId]}（${moduleId}）
 可用分类参考：${formatList(categoriesByModule[moduleId] ?? [])}
@@ -54,10 +76,10 @@ ${extraRule}`.trim();
 }
 
 function buildManifestExample(selectedModules) {
-  const exportScope = selectedModules.length === knowledgeModuleIds.length ? "full" : "partial";
+  const exportScope =
+    selectedModules.length === knowledgeModuleIds.length ? "full" : "partial";
 
-  return `manifest.json 至少包含以下字段：
-{
+  return `manifest.json 至少包含以下字段：{
   "schemaVersion": 1,
   "exportScope": "${exportScope}",
   "exportedModules": ${JSON.stringify(selectedModules)},
@@ -74,9 +96,10 @@ export async function generateImportAiPrompt(selectedModulesInput) {
   const selectedModules = ensureSelectedModules(selectedModulesInput);
   const { categoriesByModule, statusesByModule } =
     await getImportTemplateContext(selectedModules);
-  const prompt = `请把我接下来提供的原始表格、原始笔记或清单，整理成一个可导入“个人知识收集网站”的 ZIP 包文件内容。
 
-你的输出目标不是解释格式，而是直接生成导入包内每个文件的结构化内容。不要输出废话，不要输出额外说明，不要省略必要文件。
+  const prompt = `请把我接下来提供的原始表格、原始笔记或清单，整理成一个可导入“个人知识收集网站”的 ZIP 包内容。
+你的输出目标不是解释格式，而是直接生成导入包内每个文件的结构化内容。
+不要输出额外解释，不要省略必要文件。
 
 请严格遵守以下规则：
 1. 目标目录结构必须是：
@@ -89,13 +112,15 @@ export async function generateImportAiPrompt(selectedModulesInput) {
    - offline 使用 offline-001 这类格式
    - shopping 使用 shopping-001 这类格式
    - websites 使用 websites-001 这类格式
-4. 长备注优先放到 content/<module>/<id>.md；如果没有长备注，可只保留 note。
-5. category 必须尽量匹配现有分类；如果无法判断，不要编造不存在的分类，可留空并在 note 中提醒人工确认。
+   - inbox 使用 inbox-001 这类格式
+4. 长备注优先放到 content/<module>/<id>.md；如果没有长备注，可以只保留 note。
+5. category 必须尽量匹配现有分类；如果无法判断，不要编造不存在的分类。
 6. status 也应优先匹配现有配置；信息不足时不要强行猜测。
 7. tags 必须是字符串数组，标签要去重、简洁、规范。
 8. createdAt 和 updatedAt 使用 YYYY-MM-DD。
 9. 如果没有某个可选字段，请返回空字符串、null 或省略，但不要编造。
-10. websites 模块如果原始资料里有网址、URL 或域名，必须优先提取 domain；如果没有足够信息，不要编造网站用途。
+10. websites 模块如有网址或域名，必须优先提取 domain；如果没有足够信息，不要编造网站用途。
+11. inbox 模块必须完整保留 rawContent；就算信息杂乱，也不要提前过度结构化。
 
 ${buildManifestExample(selectedModules)}
 
@@ -105,10 +130,10 @@ ${buildModuleInstructions(selectedModules, categoriesByModule, statusesByModule)
 输出格式要求：
 1. 直接按“文件路径 + 文件内容”的方式输出。
 2. 每个文件都输出完整内容。
-3. 不要解释，不要加“以下是结果”之类的前言。
+3. 不要输出解释，不要加“以下是结果”等前言。
 4. 文件路径必须与 id 和模块目录一致。
 
-你接下来会收到原始数据。请根据原始数据生成完整的导入包内容。`;
+我接下来会提供原始数据，请根据原始数据生成完整的导入包内容。`;
 
   return {
     prompt,

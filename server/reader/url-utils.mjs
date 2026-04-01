@@ -6,50 +6,82 @@ function ensureProtocol(value) {
   return `https://${value}`;
 }
 
-export function extractUrlCandidate(rawText) {
-  const text = String(rawText ?? "").trim();
-  const urlMatch = text.match(/\bhttps?:\/\/[^\s<>"'`]+/i);
+function toNormalizedCandidate(value) {
+  const trimmed = String(value ?? "").trim();
 
-  if (urlMatch?.[0]) {
-    return urlMatch[0];
-  }
-
-  const bareDomainMatch = text.match(
-    /\b(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s<>"'`]*)?/i,
-  );
-
-  return bareDomainMatch?.[0] ?? "";
-}
-
-export function normalizeWebsiteUrl(input) {
-  const candidate = extractUrlCandidate(input);
-
-  if (!candidate) {
-    return {
-      hasUrl: false,
-      url: "",
-      domain: "",
-      readerPathTarget: "",
-    };
+  if (!trimmed) {
+    return null;
   }
 
   try {
-    const normalized = new URL(ensureProtocol(candidate));
+    const normalized = new URL(ensureProtocol(trimmed));
     normalized.hash = "";
 
     const domain = normalized.hostname.replace(/^www\./i, "").toLowerCase();
-    const isHttps = normalized.protocol === "https:";
-    const readerPathTarget = isHttps
-      ? `${normalized.host}${normalized.pathname}${normalized.search}`
-      : `${normalized.protocol}//${normalized.host}${normalized.pathname}${normalized.search}`;
+    const url = normalized.toString();
+    const readerPathTarget =
+      normalized.protocol === "https:"
+        ? `${normalized.host}${normalized.pathname}${normalized.search}`
+        : `${normalized.protocol}//${normalized.host}${normalized.pathname}${normalized.search}`;
 
     return {
-      hasUrl: true,
-      url: normalized.toString(),
+      input: trimmed,
+      url,
       domain,
       readerPathTarget,
     };
   } catch {
+    return null;
+  }
+}
+
+export function extractUrlCandidates(rawText, limit = 8) {
+  const text = String(rawText ?? "");
+  const matches = [
+    ...text.matchAll(/\bhttps?:\/\/[^\s<>"'`]+/gi),
+    ...text.matchAll(/\b(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s<>"'`]*)?/gi),
+  ].map((match) => match[0]);
+
+  const seen = new Set();
+  const candidates = [];
+
+  for (const match of matches) {
+    const normalized = toNormalizedCandidate(match);
+
+    if (!normalized || seen.has(normalized.url)) {
+      continue;
+    }
+
+    seen.add(normalized.url);
+    candidates.push(normalized);
+
+    if (candidates.length >= limit) {
+      break;
+    }
+  }
+
+  return candidates;
+}
+
+export function extractUrlCandidate(rawText) {
+  return extractUrlCandidates(rawText, 1)[0]?.input ?? "";
+}
+
+export function normalizeWebsiteCandidates(rawText, limit = 8) {
+  const candidates = extractUrlCandidates(rawText, limit);
+
+  return {
+    hasUrl: candidates.length > 0,
+    candidates,
+    first: candidates[0] ?? null,
+  };
+}
+
+export function normalizeWebsiteUrl(input) {
+  const normalized = normalizeWebsiteCandidates(input, 1);
+  const first = normalized.first;
+
+  if (!first) {
     return {
       hasUrl: false,
       url: "",
@@ -57,6 +89,13 @@ export function normalizeWebsiteUrl(input) {
       readerPathTarget: "",
     };
   }
+
+  return {
+    hasUrl: true,
+    url: first.url,
+    domain: first.domain,
+    readerPathTarget: first.readerPathTarget,
+  };
 }
 
 export function looksLikeWebsiteHint(rawText) {

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   createCategory,
+  createKnowledgeEntriesBatch,
   createKnowledgeEntry,
   deleteKnowledgeEntry,
   deleteCategory,
@@ -457,6 +458,15 @@ const server = http.createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === "POST" && url.pathname === "/api/knowledge/batch") {
+      requireAdmin(request);
+      const rawBody = await readBody(request);
+      const body = JSON.parse(rawBody || "{}");
+      const result = await createKnowledgeEntriesBatch(body.moduleId, body.drafts ?? []);
+      sendJson(response, 201, result);
+      return;
+    }
+
     if (request.method === "POST" && url.pathname === "/api/knowledge/categories") {
       requireAdmin(request);
       const rawBody = await readBody(request);
@@ -497,7 +507,7 @@ const server = http.createServer(async (request, response) => {
 
     if (
       request.method === "PUT" &&
-      /^\/api\/knowledge\/(offline|shopping|websites)\/[^/]+$/.test(url.pathname)
+      /^\/api\/knowledge\/(offline|shopping|websites|inbox)\/[^/]+$/.test(url.pathname)
     ) {
       requireAdmin(request);
       const [, , , moduleId, entryId] = url.pathname.split("/");
@@ -514,7 +524,7 @@ const server = http.createServer(async (request, response) => {
 
     if (
       request.method === "DELETE" &&
-      /^\/api\/knowledge\/(offline|shopping|websites)\/[^/]+$/.test(url.pathname)
+      /^\/api\/knowledge\/(offline|shopping|websites|inbox)\/[^/]+$/.test(url.pathname)
     ) {
       requireAdmin(request);
       const [, , , moduleId, entryId] = url.pathname.split("/");

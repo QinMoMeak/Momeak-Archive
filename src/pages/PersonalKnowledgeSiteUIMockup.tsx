@@ -2,6 +2,7 @@
 import { motion } from "framer-motion";
 import {
   Globe,
+  Inbox,
   FolderTree,
   LogOut,
   Pencil,
@@ -41,6 +42,7 @@ import {
 } from "@/lib/data-sync";
 import {
   createCategory,
+  createKnowledgeEntriesBatch,
   createKnowledgeEntry,
   deleteKnowledgeEntry,
   fetchAiSettings,
@@ -94,6 +96,7 @@ const moduleIcons = {
   store: Store,
   shoppingBag: ShoppingBag,
   globe: Globe,
+  inbox: Inbox,
 } as const;
 const sidebarWidthStorageKey = "personal-kb-sidebar-width";
 const defaultSidebarWidth = 296;
@@ -131,6 +134,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
       offline: [...moduleDefinitions.offline.defaultCategories],
       shopping: [...moduleDefinitions.shopping.defaultCategories],
       websites: [...moduleDefinitions.websites.defaultCategories],
+      inbox: [...moduleDefinitions.inbox.defaultCategories],
     },
   });
   const [activeModule, setActiveModule] = useState<ModuleId>("offline");
@@ -160,6 +164,10 @@ export default function PersonalKnowledgeSiteUIMockup() {
     entry: KnowledgeEntry | null;
   } | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
+  const visibleModuleList = useMemo(
+    () => (isAdmin ? moduleList : moduleList.filter((module) => module.id !== "inbox")),
+    [isAdmin],
+  );
 
   const currentModule = moduleDefinitions[activeModule];
   const translatedCurrentModuleLabel = moduleLabel(activeModule);
@@ -243,6 +251,24 @@ export default function PersonalKnowledgeSiteUIMockup() {
 
     return () => window.clearTimeout(timer);
   }, [actionNotice]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      return;
+    }
+
+    if (activeModule === "inbox") {
+      setActiveModule("offline");
+    }
+
+    if (selectedItem?.module === "inbox") {
+      setSelectedItem(null);
+    }
+
+    if (editorState?.moduleId === "inbox") {
+      setEditorState(null);
+    }
+  }, [activeModule, editorState, isAdmin, selectedItem]);
 
   const categoryOptions = useMemo(
     () => getUniqueValues(rows.map((item) => item.category)),
@@ -504,6 +530,41 @@ export default function PersonalKnowledgeSiteUIMockup() {
     setEditorState(null);
   }
 
+  async function handleBatchSaveEntries(drafts: QuickAddDraft[]) {
+    if (!editorState) {
+      return;
+    }
+
+    setActionError("");
+    const result = await createKnowledgeEntriesBatch(editorState.moduleId, drafts);
+    setKnowledgeData(result.data);
+
+    if (result.createdEntries.length > 0) {
+      const firstEntry = result.createdEntries[0];
+      setHighlightedEntryId(firstEntry.id);
+      setSelectedItem(firstEntry);
+      setActiveModule(firstEntry.module);
+      const nextMeta = await fetchKnowledgeMeta();
+      setKnowledgeMeta(nextMeta);
+    }
+
+    if (result.createdEntries.length === 0) {
+      const reason = result.failures[0]?.message || "没有候选条目被成功创建。";
+      setActionError(reason);
+      return result;
+    }
+
+    if (result.failures.length > 0) {
+      setActionNotice(
+        `成功添加 ${result.createdEntries.length} 条，跳过 ${result.failures.length} 条。`,
+      );
+    } else {
+      setActionNotice(`成功添加 ${result.createdEntries.length} 条。`);
+    }
+
+    return result;
+  }
+
   async function handleDeleteEntry(entry: KnowledgeEntry) {
     const confirmed = window.confirm(
       `\u786e\u8ba4\u5220\u9664\u300c${entry.name}\u300d\uff1f\u8fd9\u4f1a\u540c\u65f6\u5220\u9664 JSON \u7d22\u5f15\u548c Markdown \u6b63\u6587\u3002`,
@@ -719,7 +780,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
               </div>
 
               <div className="space-y-2">
-                {moduleList.map((module) => {
+                {visibleModuleList.map((module) => {
                   const ModuleIcon = moduleIcons[module.iconKey];
                   const active = activeModule === module.id;
 
@@ -798,24 +859,6 @@ export default function PersonalKnowledgeSiteUIMockup() {
                 }}
               />
 
-              <Card className="rounded-[24px] border-0 bg-slate-900 text-white shadow-[0_28px_70px_-48px_rgba(15,23,42,1)]">
-                <CardContent className="p-4">
-                  <div className="text-sm font-medium">
-                    {t("page.currentAccessMode")}
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Badge
-                      variant={isAdmin ? "default" : "secondary"}
-                      className="rounded-full px-3 py-1"
-                    >
-                      {isAdmin ? t("page.adminMode") : t("page.publicReadOnly")}
-                    </Badge>
-                  </div>
-                  <div className="mt-3 text-sm leading-6 text-slate-300">
-                    {isAdmin ? t("page.adminHint") : t("page.publicHint")}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </aside>
           <div
@@ -1236,7 +1279,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
       <DataSyncDialog
         open={isDataSyncOpen}
         onOpenChange={setIsDataSyncOpen}
-        moduleOptions={moduleList.map((module) => ({
+        moduleOptions={visibleModuleList.map((module) => ({
           id: module.id,
           label: moduleLabel(module.id),
           count: knowledgeData[module.id].length,
@@ -1281,11 +1324,12 @@ export default function PersonalKnowledgeSiteUIMockup() {
             ? "\u4fdd\u5b58\u4fee\u6539"
             : "\u4fdd\u5b58\u5e76\u5199\u5165\u4ed3\u5e93"
         }
-        onAiParse={(rawText) => parseEntryWithAi(editorModuleId, rawText)}
+        onAiParse={(rawText, mode) => parseEntryWithAi(editorModuleId, rawText, mode)}
         onCreateCategory={(name) =>
           handleCreateCategoryForModule(editorModuleId, name)
         }
         onSubmit={handleSaveEntry}
+        onBatchSubmit={handleBatchSaveEntries}
       />
 
       <KnowledgeDetailDrawer

@@ -1,103 +1,124 @@
 function formatList(title, values) {
-  if (!values || values.length === 0) {
-    return `${title}：\n- 暂无`;
+  if (!values?.length) {
+    return `${title}\n- 暂无`;
   }
 
-  return `${title}：\n${values.map((item) => `- ${item}`).join("\n")}`;
+  return `${title}\n${values.map((item) => `- ${item}`).join("\n")}`;
 }
 
-function formatReaderContext(readerContext) {
-  if (!readerContext || !readerContext.used) {
-    return [
-      "Reader 读取结果：",
-      "- 本次未调用 Reader，或没有检测到可读取的网址线索。",
-    ].join("\n");
+function formatReaderContext(readerContexts = []) {
+  if (!readerContexts.length) {
+    return "Reader 结果：\n- 本次没有可用的 Reader 内容。";
   }
 
-  const lines = [
-    "Reader 读取结果：",
-    `- 调用状态：${readerContext.statusLabel}`,
-    `- 规范化 URL：${readerContext.normalizedUrl || "无"}`,
-    `- 域名：${readerContext.domain || "无"}`,
-    `- 内容长度：${readerContext.contentLength} 字符`,
-  ];
+  return [
+    "Reader 结果：",
+    ...readerContexts.map((context, index) => {
+      const lines = [
+        `- 候选 ${index + 1}`,
+        `  - URL：${context.normalizedUrl || "未知"}`,
+        `  - 域名：${context.domain || "未知"}`,
+        `  - 状态：${context.statusLabel}`,
+        `  - 正文长度：${context.contentLength || 0}`,
+      ];
 
-  if (readerContext.metaSummary) {
-    lines.push("- Reader meta 摘要：", readerContext.metaSummary);
-  }
+      if (context.metaSummary) {
+        lines.push(`  - Meta：${context.metaSummary}`);
+      }
 
-  if (readerContext.markdown) {
-    lines.push("- Reader markdown 内容（可能已裁剪）：", readerContext.markdown);
-  }
+      if (context.markdown) {
+        lines.push(`  - Markdown：\n${context.markdown}`);
+      }
 
-  if (readerContext.warnings.length > 0) {
-    lines.push(
-      "- Reader 警告：",
-      ...readerContext.warnings.map((item) => `  - ${item}`),
-    );
-  }
+      if (context.warnings?.length) {
+        lines.push(`  - 警告：${context.warnings.join("；")}`);
+      }
 
-  return lines.join("\n");
+      return lines.join("\n");
+    }),
+  ].join("\n");
 }
 
-export function buildWebsitesPrompt(context) {
-  const {
-    availableCategories,
-    availableStatuses,
-    rawText,
-    extractedDomain,
-    normalizedUrl,
-    readerContext,
-  } = context;
+export function buildWebsitesPrompt({
+  rawText,
+  mode = "single",
+  extractedDomain = "",
+  normalizedUrl = "",
+  extractedDomains = [],
+  availableCategories = [],
+  availableStatuses = [],
+  readerContext = null,
+  readerContexts = [],
+}) {
+  const multipleHint =
+    mode === "multiple"
+      ? "当前是多条解析模式。若输入里出现多个网址、多个网站名称、榜单、合集、导航清单或多项目列表，请优先拆成多条独立网站候选。不要把整段网站合集压成一条记录。"
+      : "当前是单条解析模式。请把整段内容尽量整理成一条网站记录。";
+
+  const outputHint =
+    mode === "multiple"
+      ? "输出必须是一个 JSON 对象：{ entries: [...], warnings: [] }。entries 中每一项都是一条网站候选。"
+      : "输出必须是一个 JSON 对象，对应单条网站记录。";
+
+  const readerSection =
+    mode === "multiple"
+      ? formatReaderContext(readerContexts)
+      : formatReaderContext(readerContext ? [readerContext] : []);
 
   return {
-    systemPrompt: `你是个人知识收集网站里的结构化录入助手，负责“网站收集”模块。
+    systemPrompt: `你是个人知识库里的“网站收集”录入助手，负责把原始文本整理成长期可维护的网站条目。
+${multipleHint}
+${outputHint}
 
-必须严格遵守以下规则：
-1. 输入内容应当包含 URL、域名，或至少有明确的网站名称线索。
-2. 优先提取真实域名，domain 字段必须尽量返回真实域名；如果无法可靠确定，返回 null，并把 "domain" 放进 missingFields。
-3. 如果原始文本完全没有网站线索，不要编造网站信息；必须通过 missingFields 和 warnings 明确提示信息不足。
-4. 如果 Reader 没有提供足够内容，不要编造网站用途、可访问性或核心内容。
-5. category 和 status 只能作为建议值，分别写入 suggestedCategory / suggestedStatus。
-6. 输出必须是 JSON，不要输出解释性文字。
-7. note 要重点整理：网站内容、网站用途、适合场景、特点。
-8. markdownContent 要写成适合长期维护的知识库记录，优先使用二级标题和简洁要点。
-9. 如果 access 无法判断，返回 null，不要猜测。
-10. 同时输出 siteContentSummary 和 sitePurpose；如果无法判断则返回 null。`,
-    userPrompt: `请分析下面这段网站信息，并输出结构化 JSON。
+必须遵守：
+1. 原始内容里应尽量包含 URL、域名或明确的网站名称线索。
+2. 优先提取真实域名。domain 是关键字段，如果无法可靠确定，请返回 null，并把 "domain" 放进 missingFields。
+3. 如果没有网站线索，不要编造网站用途、访问状态或核心内容。
+4. note / markdownContent 要重点整理：网站内容、网站用途、适合场景、特点。
+5. access 只有在信息明确时才返回，否则返回 null。
+6. suggestedCategory / suggestedStatus 只是建议值，不能假设一定可直接落库。
+7. 多条模式下，每个对象尽量独立成条。`,
+    userPrompt: `请解析下面这段网站相关内容。
 
-${formatList("当前可用分类（仅供参考，最终会做运行时校验）", availableCategories)}
+${formatList("当前可用分类（仅供参考，最终仍会做运行时校验）：", availableCategories)}
 
-${formatList("当前可用状态（仅供参考，最终会做运行时校验）", availableStatuses)}
+${formatList("当前可用状态（仅供参考，最终仍会做运行时校验）：", availableStatuses)}
 
 预检测到的域名线索：
-- ${extractedDomain || "未检测到明确域名"}
+${mode === "multiple"
+  ? extractedDomains.length
+    ? extractedDomains.map((item) => `- ${item}`).join("\n")
+    : "- 未检测到"
+  : `- ${extractedDomain || "未检测到"}`}
 
 规范化 URL：
-- ${normalizedUrl || "未生成"}
+${mode === "multiple"
+  ? readerContexts.length
+    ? readerContexts.map((item) => `- ${item.normalizedUrl || "未知"}`).join("\n")
+    : "- 未生成"
+  : `- ${normalizedUrl || "未生成"}`}
 
-${formatReaderContext(readerContext)}
+${readerSection}
 
 字段要求：
 - name：网站名称
 - domain：真实域名
 - suggestedCategory：建议分类
 - suggestedStatus：建议状态
-- access：仅在信息明确时返回“可访问 / 部分可访问 / 不可访问”
+- access：仅返回“可访问 / 部分可访问 / 不可访问”之一，无法判断就返回 null
 - tags：短标签数组
 - source：来源
-- note：简洁摘要，重点整理“网站内容 + 网站用途 + 适合场景 + 特点”
-- markdownContent：更完整的 Markdown 记录
-- siteContentSummary：网站主要内容总结
-- sitePurpose：网站用途 / 适用场景
-- missingFields：无法确认的关键字段
-- warnings：需要用户确认的风险提示
+- note：适合列表展示的摘要
+- markdownContent：适合详情展示的 Markdown
+- siteContentSummary：网站主要内容
+- sitePurpose：网站用途 / 适合场景
+- missingFields：无法确定的关键字段
+- warnings：风险提示
 
 重要限制：
-- 如果原文或 Reader 内容里出现 URL，请自动识别并提取域名。
-- 如果只有网站名称但没有完整 URL，可以在把握高时推断 domain，但必须在 warnings 中提示用户确认。
-- 如果 Reader 内容为空、过少或失败，不要因此编造 sitePurpose、access、content。
-- 如果完全没有网站线索，至少把 domain 放进 missingFields，并提示用户补充网址或域名。
+- 如果文本里有多个网址，请优先拆成多条。
+- 如果只有网站名称但没有完整 URL，可以谨慎推断 domain，但必须在 warnings 里提醒用户确认。
+- 如果 Reader 内容不足，不要编造网站用途。
 
 原始文本：
 """${rawText}"""`,

@@ -1,6 +1,6 @@
-export type ModuleId = "offline" | "shopping" | "websites";
+export type ModuleId = "offline" | "shopping" | "websites" | "inbox";
 
-export type ModuleIconKey = "store" | "shoppingBag" | "globe";
+export type ModuleIconKey = "store" | "shoppingBag" | "globe" | "inbox";
 
 export type SortOptionId =
   | "created-desc"
@@ -48,12 +48,28 @@ export type WebsiteEntry = EntryBase & {
   purpose: string;
 };
 
-export type KnowledgeEntry = OfflineEntry | ShoppingEntry | WebsiteEntry;
+export type InboxEntry = EntryBase & {
+  module: "inbox";
+  rawContent: string;
+  rawContentType: string;
+  aiSummary: string;
+  aiSuggestions: string;
+  suggestedTargetModule: string;
+  suggestedCategory: string;
+  confidence: number | null;
+};
+
+export type KnowledgeEntry =
+  | OfflineEntry
+  | ShoppingEntry
+  | WebsiteEntry
+  | InboxEntry;
 
 export type KnowledgeData = {
   offline: OfflineEntry[];
   shopping: ShoppingEntry[];
   websites: WebsiteEntry[];
+  inbox: InboxEntry[];
 };
 
 export type KnowledgeMeta = {
@@ -94,6 +110,13 @@ export type QuickAddDraft = {
   access: string;
   content: string;
   purpose: string;
+  rawContent: string;
+  rawContentType: string;
+  aiSummary: string;
+  aiSuggestions: string;
+  suggestedTargetModule: string;
+  suggestedCategory: string;
+  confidence: string;
 };
 
 export type CreateKnowledgeEntryPayload = {
@@ -124,6 +147,21 @@ export type UpdateKnowledgeEntryPayload = {
 export type DeleteKnowledgeEntryResponse = {
   data: KnowledgeData;
   deletedEntryId: string;
+};
+
+export type BatchCreateKnowledgeEntriesPayload = {
+  moduleId: ModuleId;
+  drafts: QuickAddDraft[];
+};
+
+export type BatchCreateKnowledgeEntriesResponse = {
+  data: KnowledgeData;
+  createdEntries: KnowledgeEntry[];
+  failures: Array<{
+    index: number;
+    message: string;
+    draftName: string;
+  }>;
 };
 
 export type AuthSessionResponse = {

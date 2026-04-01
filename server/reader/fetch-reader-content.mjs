@@ -1,4 +1,5 @@
 import { ProxyAgent } from "undici";
+
 import {
   readerApiBaseUrl,
   readerApiKey,
@@ -153,14 +154,14 @@ export async function fetchReaderContent(readerPathTarget, overrides = {}) {
       status: 50000,
       endpoint,
       headers: {
-          Accept: headers.Accept,
-          "X-Base": headers["X-Base"],
-          "X-Engine": headers["X-Engine"],
-          "X-Respond-With": headers["X-Respond-With"],
-          "X-Return-Format": headers["X-Return-Format"],
-          "X-Retain-Images": headers["X-Retain-Images"],
-          "X-Timeout": headers["X-Timeout"],
-        },
+        Accept: headers.Accept,
+        "X-Base": headers["X-Base"],
+        "X-Engine": headers["X-Engine"],
+        "X-Respond-With": headers["X-Respond-With"],
+        "X-Return-Format": headers["X-Return-Format"],
+        "X-Retain-Images": headers["X-Retain-Images"],
+        "X-Timeout": headers["X-Timeout"],
+      },
       markdown: "",
       data: "",
       meta: null,

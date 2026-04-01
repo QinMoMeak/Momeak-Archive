@@ -1,0 +1,48 @@
+[
+  {
+    "id": "inbox-001",
+    "module": "inbox",
+    "name": "博客片段：Jina Reader 用法",
+    "category": "未归类",
+    "status": "已分析",
+    "tags": [
+      "Reader",
+      "网页摘录",
+      "AI"
+    ],
+    "note": "先保留原始片段，后续再决定是否整理进网站收集。",
+    "source": "临时复制",
+    "createdAt": "2026-03-28",
+    "updatedAt": "2026-03-30",
+    "rawContent": "Jina Reader 可以把网页内容直接转换成适合大模型处理的 markdown。后续想试试看能不能拿它做网站收集的预处理。",
+    "rawContentType": "text",
+    "aiSummary": "一段关于 Jina Reader 用途的网页摘录，重点在网页转 markdown 与 AI 预处理。",
+    "aiSuggestions": "建议保留原文，并在补充网址后整理到网站收集模块。",
+    "suggestedTargetModule": "websites",
+    "suggestedCategory": "AI 工具",
+    "confidence": 0.84
+  },
+  {
+    "id": "inbox-002",
+    "module": "inbox",
+    "name": "待整理商品评价",
+    "category": "未归类",
+    "status": "未处理",
+    "tags": [
+      "商品评价",
+      "数码",
+      "待判断"
+    ],
+    "note": "评价内容先收进来，之后再决定值不值得整理成网购好物。",
+    "source": "聊天记录",
+    "createdAt": "2026-03-31",
+    "updatedAt": "2026-03-31",
+    "rawContent": "这款 65W 充电器体积真的小，出差时一个头就够用，不过连续给笔记本供电会有点发热，适合轻办公和手机平板一起带。",
+    "rawContentType": "review",
+    "aiSummary": "",
+    "aiSuggestions": "",
+    "suggestedTargetModule": "",
+    "suggestedCategory": "",
+    "confidence": null
+  }
+]

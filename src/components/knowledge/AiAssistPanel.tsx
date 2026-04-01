@@ -3,12 +3,14 @@ import { LoaderCircle, Sparkles, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { AiSuggestionResult } from "@/types/ai";
+import type { AiParseMode, AiSuggestionResult } from "@/types/ai";
 import type { ModuleId } from "@/types/knowledge";
 
 type AiAssistPanelProps = {
   moduleId: ModuleId;
   rawText: string;
+  parseMode: AiParseMode;
+  onParseModeChange: (mode: AiParseMode) => void;
   onRawTextChange: (value: string) => void;
   onParse: () => void;
   isParsing: boolean;
@@ -34,13 +36,15 @@ function InfoList({
     <div
       className={`rounded-2xl border px-4 py-3 ${
         tone === "warning"
-          ? "border-amber-200 bg-amber-50"
-          : "border-slate-200 bg-slate-50"
+          ? "border-amber-200 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10"
+          : "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
       }`}
     >
       <div
         className={`text-sm font-medium ${
-          tone === "warning" ? "text-amber-900" : "text-slate-800"
+          tone === "warning"
+            ? "text-amber-900 dark:text-amber-200"
+            : "text-slate-800 dark:text-slate-100"
         }`}
       >
         {title}
@@ -50,7 +54,7 @@ function InfoList({
           <Badge
             key={`${title}-${item}`}
             variant={tone === "warning" ? "outline" : "secondary"}
-            className="rounded-full"
+            className="rounded-full whitespace-normal"
           >
             {item}
           </Badge>
@@ -60,17 +64,29 @@ function InfoList({
   );
 }
 
-function getParsingSteps(moduleId: ModuleId) {
+function getParsingSteps(moduleId: ModuleId, mode: AiParseMode) {
   if (moduleId === "websites") {
-    return ["正在读取网页内容", "正在分析网站用途"];
+    return mode === "multiple"
+      ? ["正在读取多个网页内容", "正在拆分多个网站并分析用途"]
+      : ["正在读取网页内容", "正在分析网站用途"];
   }
 
-  return ["正在提取结构化字段"];
+  if (moduleId === "inbox") {
+    return mode === "multiple"
+      ? ["正在拆分多条原始内容", "正在生成摘要与整理建议"]
+      : ["正在理解原始内容", "正在生成摘要与整理建议"];
+  }
+
+  return mode === "multiple"
+    ? ["正在识别多个对象", "正在生成候选条目"]
+    : ["正在提取结构化字段"];
 }
 
 export function AiAssistPanel({
   moduleId,
   rawText,
+  parseMode,
+  onParseModeChange,
   onRawTextChange,
   onParse,
   isParsing,
@@ -78,37 +94,79 @@ export function AiAssistPanel({
   result,
   onCreateSuggestedCategory,
 }: AiAssistPanelProps) {
+  const isSingle = result?.mode === "single";
+  const singleEntry = isSingle ? result.entry : null;
   const hasCategoryMismatch =
-    Boolean(result?.needsCategoryConfirmation) && Boolean(result?.unmatchedCategory);
+    Boolean(singleEntry?.needsCategoryConfirmation) && Boolean(singleEntry?.unmatchedCategory);
   const hasStatusMismatch =
-    Boolean(result?.needsStatusConfirmation) && Boolean(result?.unmatchedStatus);
-  const parsingSteps = getParsingSteps(moduleId);
+    Boolean(singleEntry?.needsStatusConfirmation) && Boolean(singleEntry?.unmatchedStatus);
+  const parsingSteps = getParsingSteps(moduleId, parseMode);
+  const multipleModeHint =
+    "适合榜单、表格、合集、推荐清单和多项目列表。AI 会先拆成候选结果，再由你确认。";
 
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+    <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-            <Sparkles className="h-4 w-4 text-slate-500" />
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+            <Sparkles className="h-4 w-4 text-slate-500 dark:text-slate-400" />
             AI 辅助解析
           </div>
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            粘贴一段原始描述后自动提取结构化字段。解析结果只会回填表单，仍可继续手动修改。
+          <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            粘贴一段原始文本后自动提取可用字段。单条解析会直接回填表单，多条解析会先生成候选结果供你确认。
           </p>
         </div>
-        {result && (
+
+        {result?.mode === "single" && (
           <Badge variant="secondary" className="rounded-full px-3 py-1">
-            已填充 {result.filledFields.length} 个字段
+            已填充 {result.entry.filledFields.length} 个字段
+          </Badge>
+        )}
+
+        {result?.mode === "multiple" && (
+          <Badge variant="secondary" className="rounded-full px-3 py-1">
+            已识别 {result.entries.length} 条候选
           </Badge>
         )}
       </div>
 
       <div className="mt-4 space-y-3">
+        <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-950">
+          <button
+            type="button"
+            onClick={() => onParseModeChange("single")}
+            className={`rounded-full px-3 py-1.5 text-sm transition ${
+              parseMode === "single"
+                ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            }`}
+          >
+            单条解析
+          </button>
+          <button
+            type="button"
+            onClick={() => onParseModeChange("multiple")}
+            className={`rounded-full px-3 py-1.5 text-sm transition ${
+              parseMode === "multiple"
+                ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            }`}
+          >
+            多条解析
+          </button>
+        </div>
+
+        {parseMode === "multiple" && (
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-6 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
+            {multipleModeHint}
+          </div>
+        )}
+
         <Textarea
           value={rawText}
           onChange={(event) => onRawTextChange(event.target.value)}
-          placeholder="例如：贴一段网页介绍、商品描述、朋友推荐文本，或包含网址 / 域名的网站说明。"
-          className="min-h-28 bg-white"
+          placeholder="例如：粘贴一段网站合集、红榜商品表、多家餐厅推荐、KTV 歌曲清单、聊天摘录或待整理链接。"
+          className="min-h-28 bg-white dark:bg-slate-950"
         />
 
         <div className="flex flex-wrap items-center gap-3">
@@ -120,68 +178,77 @@ export function AiAssistPanel({
             )}
             {isParsing ? parsingSteps[0] : "AI 解析"}
           </Button>
-          <div className="text-xs leading-5 text-slate-500">
-            当前为单轮结构化提取，不会覆盖你后续的手动修改。
+          <div className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {parseMode === "single"
+              ? "单条解析会尽量把整段内容聚合成一条记录。"
+              : "多条解析不会直接静默入库，确认后才会批量创建。"}
           </div>
         </div>
 
         {isParsing && parsingSteps.length > 1 && (
-          <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
             <div className="flex items-center gap-2 font-medium">
               <LoaderCircle className="h-4 w-4 animate-spin" />
               {parsingSteps[0]}
             </div>
-            <div className="mt-1 text-xs text-sky-700">{parsingSteps[1]}</div>
+            <div className="mt-1 text-xs opacity-80">{parsingSteps[1]}</div>
           </div>
         )}
 
         {error && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
             {error}
           </div>
         )}
 
-        {result && (
+        {result?.mode === "multiple" && (
           <div className="space-y-3">
-            {result.readerUsed && (
-              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                <div className="font-medium text-slate-900">
-                  {result.readerStatusLabel || "已启用 Reader"}
+            {result.warnings.length > 0 && (
+              <InfoList title="解析提醒" items={result.warnings} tone="warning" />
+            )}
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+              AI 已生成 {result.entries.length} 条候选结果。确认后会批量创建，未确认的条目不会写入。
+            </div>
+          </div>
+        )}
+
+        {singleEntry && (
+          <div className="space-y-3">
+            {singleEntry.readerUsed && (
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+                <div className="font-medium text-slate-900 dark:text-slate-100">
+                  {singleEntry.readerStatusLabel || "已启用 Reader"}
                 </div>
-                {result.readerUrl && (
-                  <div className="mt-1 break-all text-xs text-slate-500">
-                    {result.readerUrl}
+                {singleEntry.readerUrl && (
+                  <div className="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
+                    {singleEntry.readerUrl}
                   </div>
                 )}
               </div>
             )}
 
             {hasCategoryMismatch && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
                 <div className="flex items-start gap-2">
                   <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                   <div className="space-y-2">
                     <div>
-                      AI 建议分类为“{result.unmatchedCategory}”，但当前分类配置中不存在，请手动确认。
+                      AI 建议分类为“{singleEntry.unmatchedCategory}”，但当前分类配置中不存在，请手动确认。
                     </div>
-                    {result.availableCategories.length > 0 && (
-                      <div className="text-xs text-amber-800">
-                        当前可用分类：{result.availableCategories.join("、")}
+                    {singleEntry.availableCategories.length > 0 && (
+                      <div className="text-xs opacity-80">
+                        当前可用分类：{singleEntry.availableCategories.join("、")}
                       </div>
                     )}
-                    {onCreateSuggestedCategory && (
-                      <div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
-                          onClick={() =>
-                            void onCreateSuggestedCategory(result.unmatchedCategory)
-                          }
-                        >
-                          新增并使用该分类
-                        </Button>
-                      </div>
+                    {onCreateSuggestedCategory && singleEntry.unmatchedCategory && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+                        onClick={() => void onCreateSuggestedCategory(singleEntry.unmatchedCategory)}
+                      >
+                        新增并使用该分类
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -189,13 +256,13 @@ export function AiAssistPanel({
             )}
 
             {hasStatusMismatch && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                AI 建议状态为“{result.unmatchedStatus}”，但当前可用状态中不存在，请手动选择现有状态。
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+                AI 建议状态为“{singleEntry.unmatchedStatus}”，但当前可用状态中不存在，请手动确认。
               </div>
             )}
 
-            <InfoList title="缺失字段" items={result.missingFields} tone="warning" />
-            <InfoList title="解析提醒" items={result.warnings} tone="warning" />
+            <InfoList title="缺失字段" items={singleEntry.missingFields} tone="warning" />
+            <InfoList title="解析提醒" items={singleEntry.warnings} tone="warning" />
           </div>
         )}
       </div>

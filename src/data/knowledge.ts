@@ -1,8 +1,10 @@
+import inboxData from "../../data/inbox.json";
 import offlineData from "../../data/offline.json";
 import shoppingData from "../../data/shopping.json";
 import taxonomyData from "../../data/taxonomy.json";
 import websitesData from "../../data/websites.json";
 import type {
+  InboxEntry,
   KnowledgeData,
   ModuleDefinition,
   ModuleId,
@@ -90,6 +92,32 @@ export const moduleDefinitions: Record<ModuleId, ModuleDefinition> = {
       "\u89c2\u5bdf\u4e2d",
     ],
   },
+  inbox: {
+    id: "inbox",
+    label: "\u5f85\u5904\u7406",
+    description:
+      "\u5148\u6536\u8d77\u6765\u7684\u94fe\u63a5\u3001\u7247\u6bb5\u3001\u60f3\u6cd5\u548c\u5176\u4ed6\u539f\u59cb\u5185\u5bb9",
+    summary:
+      "\u5148\u4fdd\u5b58\u539f\u59cb\u5185\u5bb9\uff0c\u4e0d\u5f3a\u8feb\u5f53\u4e0b\u5b8c\u6210\u7ed3\u6784\u5316\u6574\u7406\uff0c\u540e\u7eed\u518d\u7528 AI \u5206\u6790\u6216\u8f6c\u79fb\u5230\u6b63\u5f0f\u6a21\u5757\u3002",
+    iconKey: "inbox",
+    tableHeaders: [
+      "\u6807\u9898",
+      "\u5206\u7c7b",
+      "\u539f\u59cb\u5185\u5bb9\u6458\u8981",
+      "AI \u6458\u8981",
+      "\u72b6\u6001",
+      "\u6807\u7b7e",
+    ],
+    primaryFieldLabel: "\u539f\u59cb\u5185\u5bb9",
+    secondaryFieldLabel: "AI \u6458\u8981",
+    defaultCategories: taxonomyData.categories.inbox,
+    defaultStatuses: [
+      "\u672a\u5904\u7406",
+      "\u5df2\u5206\u6790",
+      "\u5df2\u6574\u7406",
+      "\u5df2\u5f52\u6863",
+    ],
+  },
 };
 
 export const moduleList = Object.values(moduleDefinitions);
@@ -98,4 +126,5 @@ export const initialKnowledgeData: KnowledgeData = {
   offline: offlineData as OfflineEntry[],
   shopping: shoppingData as ShoppingEntry[],
   websites: websitesData as WebsiteEntry[],
+  inbox: inboxData as InboxEntry[],
 };

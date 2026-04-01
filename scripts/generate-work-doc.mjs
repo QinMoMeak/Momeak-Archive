@@ -151,12 +151,18 @@ async function readExistingVersions() {
 async function getNextVersion(bumpType) {
   const existing = await readExistingVersions();
   const baseVersion = parseVersion(workDocConfig.baseVersion);
+  const scopedExisting = workDocConfig.lockVersionSeriesToBase
+    ? existing.filter(
+        (item) =>
+          item.version[0] === baseVersion[0] && item.version[1] === baseVersion[1],
+      )
+    : existing;
 
-  if (existing.length === 0) {
+  if (scopedExisting.length === 0) {
     return bumpVersion(baseVersion, bumpType);
   }
 
-  const latest = existing
+  const latest = scopedExisting
     .map((item) => item.version)
     .sort((left, right) => compareVersions(right, left))[0];
 

@@ -11,12 +11,16 @@ const dataDir = path.join(repoRoot, "data");
 const contentDir = path.join(repoRoot, "content");
 const taxonomyFile = path.join(dataDir, "taxonomy.json");
 const minIdWidth = 3;
-const moduleIds = ["offline", "shopping", "websites"];
+const moduleIds = ["offline", "shopping", "websites", "inbox"];
 const dataFiles = {
   offline: path.join(dataDir, "offline.json"),
   shopping: path.join(dataDir, "shopping.json"),
   websites: path.join(dataDir, "websites.json"),
+  inbox: path.join(dataDir, "inbox.json"),
 };
+
+const inboxDefaultCategory = "未归类";
+const inboxDefaultStatus = "未处理";
 
 export const knowledgeModuleIds = [...moduleIds];
 export const knowledgeRepoRoot = repoRoot;
@@ -25,7 +29,7 @@ export const knowledgeContentDir = contentDir;
 
 function assertModuleId(moduleId) {
   if (!moduleIds.includes(moduleId)) {
-    throw new Error("\u4e0d\u652f\u6301\u7684\u6a21\u5757\u7c7b\u578b\u3002");
+    throw new Error("不支持的模块类型。");
   }
 }
 
@@ -48,7 +52,7 @@ function parseTagsInput(input) {
   const seen = new Set();
 
   return String(input ?? "")
-    .split(/[,\n\uFF0C]/)
+    .split(/[,\n，]/)
     .map((tag) => cleanInlineText(tag))
     .filter((tag) => {
       if (!tag) {
@@ -76,10 +80,24 @@ function parseNumber(value) {
   const parsed = Number(normalized);
 
   if (!Number.isFinite(parsed)) {
-    throw new Error("\u8bf7\u8f93\u5165\u6709\u6548\u7684\u6570\u5b57\u5b57\u6bb5\u3002");
+    throw new Error("请输入有效的数字字段。");
   }
 
   return parsed;
+}
+
+function clampConfidence(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = typeof value === "number" ? value : Number(cleanInlineText(value));
+
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.max(0, Math.min(1, parsed));
 }
 
 function getToday() {
@@ -89,14 +107,58 @@ function getToday() {
 function getMarkdownSummary(markdownContent) {
   const firstContentLine = cleanMultilineText(markdownContent)
     .split("\n")
-    .map((line) => line.replace(/^[#>\-*+\d.\s`]+/, "").trim())
+    .map((line) => line.replace(/^[#>*+\-\d.\s`]+/, "").trim())
     .find(Boolean);
 
-  if (!firstContentLine) {
+  return firstContentLine ? firstContentLine.slice(0, 120) : "";
+}
+
+function getTextSummary(value, maxLength = 120) {
+  return cleanMultilineText(value)
+    .replace(/\n+/g, " ")
+    .slice(0, maxLength);
+}
+
+function inferInboxTitle(rawContent) {
+  const cleaned = getTextSummary(rawContent, 48);
+
+  if (!cleaned) {
     return "";
   }
 
-  return firstContentLine.slice(0, 120);
+  const withoutProtocol = cleaned.replace(/^https?:\/\//i, "");
+  const withoutHashes = withoutProtocol.replace(/^#+\s*/, "");
+  return withoutHashes.slice(0, 28);
+}
+
+function inferRawContentType(rawContent) {
+  const normalized = cleanMultilineText(rawContent);
+
+  if (!normalized) {
+    return "text";
+  }
+
+  const hasUrl = /https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,}/i.test(normalized);
+  const hasImage = /\.(png|jpe?g|gif|webp|svg)\b/i.test(normalized);
+  const hasMultipleLines = normalized.includes("\n");
+
+  if (hasUrl && hasImage) {
+    return "mixed";
+  }
+
+  if (hasImage) {
+    return "image";
+  }
+
+  if (hasUrl) {
+    return "url";
+  }
+
+  if (hasMultipleLines && normalized.length > 180) {
+    return "note";
+  }
+
+  return "text";
 }
 
 async function ensureDirectory(targetPath) {
@@ -150,7 +212,7 @@ function ensureUniqueCategory(categories, targetName, ignoreName = "") {
       return normalized === normalizedTarget && normalized !== normalizedIgnore;
     })
   ) {
-    throw new Error("\u5206\u7c7b\u540d\u79f0\u5df2\u5b58\u5728\uff0c\u8bf7\u6362\u4e00\u4e2a\u3002");
+    throw new Error("分类名称已存在，请换一个。");
   }
 }
 
@@ -189,7 +251,6 @@ function getNextEntryId(moduleId, entries) {
 
   const nextValue = currentMax + 1;
   const nextWidth = Math.max(minIdWidth, String(nextValue).length);
-
   return `${moduleId}-${String(nextValue).padStart(nextWidth, "0")}`;
 }
 
@@ -203,35 +264,54 @@ function normalizeDraft(moduleId, draft) {
     tags: parseTagsInput(draft.tags),
     note: cleanMultilineText(draft.note),
     markdownContent: cleanMultilineText(draft.markdownContent),
-    source: cleanInlineText(draft.source) || "\u5feb\u901f\u65b0\u589e",
+    source: cleanInlineText(draft.source) || "快速新增",
     location: cleanInlineText(draft.location),
     rating: parseNumber(draft.rating),
     platform: cleanInlineText(draft.platform),
     price: parseNumber(draft.price),
     domain: cleanInlineText(draft.domain),
-    access: cleanInlineText(draft.access) || "\u53ef\u8bbf\u95ee",
+    access: cleanInlineText(draft.access) || "可访问",
     content: cleanInlineText(draft.content),
     purpose: cleanInlineText(draft.purpose),
+    rawContent: cleanMultilineText(draft.rawContent),
+    rawContentType: cleanInlineText(draft.rawContentType),
+    aiSummary: cleanMultilineText(draft.aiSummary),
+    aiSuggestions: cleanMultilineText(draft.aiSuggestions),
+    suggestedTargetModule: cleanInlineText(draft.suggestedTargetModule),
+    suggestedCategory: cleanInlineText(draft.suggestedCategory),
+    confidence: clampConfidence(draft.confidence),
   };
 
-  if (!normalized.name) {
-    throw new Error("\u540d\u79f0\u4e0d\u80fd\u4e3a\u7a7a\u3002");
-  }
+  if (moduleId === "inbox") {
+    if (!normalized.rawContent) {
+      throw new Error("待处理模块至少需要一段原始内容。");
+    }
 
-  if (!normalized.category) {
-    throw new Error("\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u4e2a\u5206\u7c7b\u3002");
-  }
+    normalized.name = normalized.name || inferInboxTitle(normalized.rawContent) || "未命名待处理条目";
+    normalized.category = normalized.category || inboxDefaultCategory;
+    normalized.status = normalized.status || inboxDefaultStatus;
+    normalized.rawContentType =
+      normalized.rawContentType || inferRawContentType(normalized.rawContent);
+  } else {
+    if (!normalized.name) {
+      throw new Error("名称不能为空。");
+    }
 
-  if (!normalized.status) {
-    throw new Error("\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u4e2a\u72b6\u6001\u3002");
+    if (!normalized.category) {
+      throw new Error("请至少选择一个分类。");
+    }
+
+    if (!normalized.status) {
+      throw new Error("请至少选择一个状态。");
+    }
   }
 
   if (moduleId === "offline" && !normalized.location) {
-    throw new Error("\u7ebf\u4e0b\u597d\u5e97\u81f3\u5c11\u9700\u8981\u586b\u5199\u5730\u70b9\u3002");
+    throw new Error("线下好店至少需要填写地点。");
   }
 
   if (moduleId === "websites" && !normalized.domain) {
-    throw new Error("\u7f51\u7ad9\u6536\u96c6\u81f3\u5c11\u9700\u8981\u586b\u5199\u57df\u540d\u3002");
+    throw new Error("网站收集至少需要填写域名。");
   }
 
   return normalized;
@@ -239,7 +319,12 @@ function normalizeDraft(moduleId, draft) {
 
 function buildEntry(moduleId, draft, entryId) {
   const today = getToday();
-  const note = draft.note || getMarkdownSummary(draft.markdownContent);
+  const note =
+    draft.note ||
+    draft.aiSummary ||
+    getMarkdownSummary(draft.markdownContent) ||
+    (moduleId === "inbox" ? getTextSummary(draft.rawContent) : "");
+
   const baseEntry = {
     id: entryId,
     module: moduleId,
@@ -271,13 +356,27 @@ function buildEntry(moduleId, draft, entryId) {
     };
   }
 
+  if (moduleId === "websites") {
+    return {
+      ...baseEntry,
+      module: "websites",
+      domain: draft.domain,
+      access: draft.access,
+      content: draft.content,
+      purpose: draft.purpose,
+    };
+  }
+
   return {
     ...baseEntry,
-    module: "websites",
-    domain: draft.domain,
-    access: draft.access,
-    content: draft.content,
-    purpose: draft.purpose,
+    module: "inbox",
+    rawContent: draft.rawContent,
+    rawContentType: draft.rawContentType,
+    aiSummary: draft.aiSummary,
+    aiSuggestions: draft.aiSuggestions,
+    suggestedTargetModule: draft.suggestedTargetModule,
+    suggestedCategory: draft.suggestedCategory,
+    confidence: draft.confidence,
   };
 }
 
@@ -292,21 +391,14 @@ export async function writeModuleEntries(moduleId, entries) {
 }
 
 export async function readKnowledgeData() {
-  const [offline, shopping, websites] = await Promise.all([
-    readModuleEntries("offline"),
-    readModuleEntries("shopping"),
-    readModuleEntries("websites"),
-  ]);
+  const results = await Promise.all(
+    moduleIds.map(async (moduleId) => [moduleId, await readModuleEntries(moduleId)]),
+  );
 
-  return {
-    offline,
-    shopping,
-    websites,
-  };
+  return Object.fromEntries(results);
 }
 
-export { readKnowledgeMeta };
-export { writeKnowledgeMeta };
+export { readKnowledgeMeta, writeKnowledgeMeta };
 
 export async function readMarkdownContent(moduleId, entryId) {
   assertModuleId(moduleId);
@@ -358,9 +450,6 @@ export async function createKnowledgeEntry(moduleId, draftInput) {
   const entry = buildEntry(moduleId, normalizedDraft, entryId);
   const nextEntries = [...entries, entry];
   const markdownContent = normalizedDraft.markdownContent;
-  const markdownPath = markdownContent
-    ? getPublicMarkdownPath(moduleId, entryId)
-    : null;
 
   await writeJsonFile(dataFiles[moduleId], nextEntries);
   await ensureCategoryExists(moduleId, entry.category);
@@ -373,10 +462,61 @@ export async function createKnowledgeEntry(moduleId, draftInput) {
 
   return {
     entry,
-    data: {
-      ...(await readKnowledgeData()),
-    },
-    markdownPath,
+    data: await readKnowledgeData(),
+    markdownPath: markdownContent ? getPublicMarkdownPath(moduleId, entryId) : null,
+  };
+}
+
+export async function createKnowledgeEntriesBatch(moduleId, draftInputs) {
+  assertModuleId(moduleId);
+
+  const entries = await readModuleEntries(moduleId);
+  const nextEntries = [...entries];
+  const createdEntries = [];
+  const failures = [];
+  const markdownWrites = [];
+
+  for (let index = 0; index < draftInputs.length; index += 1) {
+    const draftInput = draftInputs[index];
+
+    try {
+      const normalizedDraft = normalizeDraft(moduleId, draftInput);
+      const entryId = getNextEntryId(moduleId, nextEntries);
+      const entry = buildEntry(moduleId, normalizedDraft, entryId);
+      nextEntries.push(entry);
+      createdEntries.push(entry);
+      await ensureCategoryExists(moduleId, entry.category);
+
+      if (normalizedDraft.markdownContent) {
+        markdownWrites.push({
+          entryId,
+          content: normalizedDraft.markdownContent,
+        });
+      }
+    } catch (error) {
+      failures.push({
+        index,
+        draftName: cleanInlineText(draftInput?.name) || `第 ${index + 1} 条`,
+        message: error instanceof Error ? error.message : "写入失败",
+      });
+    }
+  }
+
+  if (createdEntries.length > 0) {
+    await writeJsonFile(dataFiles[moduleId], nextEntries);
+    await ensureDirectory(path.join(contentDir, moduleId));
+
+    await Promise.all(
+      markdownWrites.map(({ entryId, content }) =>
+        fs.writeFile(getContentFilePath(moduleId, entryId), `${content}\n`, "utf8"),
+      ),
+    );
+  }
+
+  return {
+    data: await readKnowledgeData(),
+    createdEntries,
+    failures,
   };
 }
 
@@ -388,18 +528,14 @@ export async function updateKnowledgeEntry(moduleId, entryId, draftInput) {
   const currentIndex = entries.findIndex((entry) => entry.id === entryId);
 
   if (currentIndex === -1) {
-    throw new Error("\u6ca1\u6709\u627e\u5230\u8981\u66f4\u65b0\u7684\u6761\u76ee\u3002");
+    throw new Error("没有找到要更新的条目。");
   }
 
   const currentEntry = entries[currentIndex];
-  const note = normalizedDraft.note || getMarkdownSummary(normalizedDraft.markdownContent);
-  const updatedAt = getToday();
-
   const updatedEntry = {
     ...buildEntry(moduleId, normalizedDraft, entryId),
     createdAt: currentEntry.createdAt,
-    updatedAt,
-    note,
+    updatedAt: getToday(),
   };
 
   const nextEntries = [...entries];
@@ -419,9 +555,7 @@ export async function updateKnowledgeEntry(moduleId, entryId, draftInput) {
 
   return {
     entry: updatedEntry,
-    data: {
-      ...(await readKnowledgeData()),
-    },
+    data: await readKnowledgeData(),
     markdownPath: normalizedDraft.markdownContent
       ? getPublicMarkdownPath(moduleId, entryId)
       : null,
@@ -435,7 +569,7 @@ export async function deleteKnowledgeEntry(moduleId, entryId) {
   const nextEntries = entries.filter((entry) => entry.id !== entryId);
 
   if (nextEntries.length === entries.length) {
-    throw new Error("\u6ca1\u6709\u627e\u5230\u8981\u5220\u9664\u7684\u6761\u76ee\u3002");
+    throw new Error("没有找到要删除的条目。");
   }
 
   await writeJsonFile(dataFiles[moduleId], nextEntries);
@@ -452,7 +586,7 @@ export async function createCategory(moduleId, nameInput) {
   const name = cleanInlineText(nameInput);
 
   if (!name) {
-    throw new Error("\u5206\u7c7b\u540d\u79f0\u4e0d\u80fd\u4e3a\u7a7a\u3002");
+    throw new Error("分类名称不能为空。");
   }
 
   const meta = await readKnowledgeMeta();
@@ -473,14 +607,14 @@ export async function renameCategory(moduleId, oldNameInput, newNameInput) {
   const newName = cleanInlineText(newNameInput);
 
   if (!oldName || !newName) {
-    throw new Error("\u65e7\u5206\u7c7b\u548c\u65b0\u5206\u7c7b\u540d\u79f0\u90fd\u4e0d\u80fd\u4e3a\u7a7a\u3002");
+    throw new Error("旧分类和新分类名称都不能为空。");
   }
 
   const meta = await readKnowledgeMeta();
   const categories = meta.categories[moduleId] ?? [];
 
   if (!categories.includes(oldName)) {
-    throw new Error("\u6ca1\u6709\u627e\u5230\u8981\u4fee\u6539\u7684\u5206\u7c7b\u3002");
+    throw new Error("没有找到要修改的分类。");
   }
 
   ensureUniqueCategory(categories, newName, oldName);
@@ -511,14 +645,14 @@ export async function deleteCategory(
   const replacementName = cleanInlineText(replacementNameInput);
 
   if (!name) {
-    throw new Error("\u8bf7\u5148\u9009\u62e9\u8981\u5220\u9664\u7684\u5206\u7c7b\u3002");
+    throw new Error("请先选择要删除的分类。");
   }
 
   const meta = await readKnowledgeMeta();
   const categories = meta.categories[moduleId] ?? [];
 
   if (!categories.includes(name)) {
-    throw new Error("\u6ca1\u6709\u627e\u5230\u8981\u5220\u9664\u7684\u5206\u7c7b\u3002");
+    throw new Error("没有找到要删除的分类。");
   }
 
   const entries = await readModuleEntries(moduleId);
@@ -526,17 +660,15 @@ export async function deleteCategory(
 
   if (affectedEntries.length > 0) {
     if (!replacementName) {
-      throw new Error(
-        "\u8be5\u5206\u7c7b\u8fd8\u6709\u6761\u76ee\u5728\u4f7f\u7528\uff0c\u8bf7\u5148\u9009\u62e9\u66ff\u6362\u5206\u7c7b\u3002",
-      );
+      throw new Error("该分类还有条目在使用，请先选择替换分类。");
     }
 
     if (replacementName === name) {
-      throw new Error("\u66ff\u6362\u5206\u7c7b\u4e0d\u80fd\u4e0e\u5f53\u524d\u5200\u9664\u7684\u5206\u7c7b\u76f8\u540c\u3002");
+      throw new Error("替换分类不能与当前删除的分类相同。");
     }
 
     if (!categories.includes(replacementName)) {
-      throw new Error("\u66ff\u6362\u5206\u7c7b\u4e0d\u5b58\u5728\u3002");
+      throw new Error("替换分类不存在。");
     }
 
     const nextEntries = entries.map((entry) =>

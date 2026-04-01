@@ -1,4 +1,4 @@
-import type { AiSuggestionResult } from "@/types/ai";
+import type { AiSuggestionEntry } from "@/types/ai";
 import { moduleDefinitions } from "@/data/knowledge";
 import type {
   KnowledgeEntry,
@@ -30,7 +30,6 @@ export function dedupeTags(tags: string[]) {
 
     seen.add(normalized);
     result.push(cleanTag);
-
     return result;
   }, []);
 }
@@ -45,30 +44,38 @@ export function getUniqueValues(values: string[]) {
   );
 }
 
+function getExcerpt(value: string, maxLength = 80) {
+  return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
 export function getPrimaryMeta(entry: KnowledgeEntry) {
   switch (entry.module) {
     case "offline":
       return entry.location;
     case "shopping":
-      return entry.platform;
+      return entry.platform || "未填写";
     case "websites":
       return entry.domain;
+    case "inbox":
+      return getExcerpt(entry.rawContent) || "暂无原始内容";
   }
 }
 
 export function getSecondaryMeta(entry: KnowledgeEntry) {
   switch (entry.module) {
     case "offline":
-      return entry.rating === null ? "\u672a\u8bc4\u5206" : entry.rating.toFixed(1);
+      return entry.rating === null ? "未评分" : entry.rating.toFixed(1);
     case "shopping":
-      return entry.price === null ? "\u672a\u586b\u5199" : formatPrice(entry.price);
+      return entry.price === null ? "未填写" : formatPrice(entry.price);
     case "websites":
       return entry.access;
+    case "inbox":
+      return entry.aiSummary || entry.rawContentType || "待分析";
   }
 }
 
 export function formatPrice(price: number) {
-  return `\u00A5${price}`;
+  return `¥${price}`;
 }
 
 export function formatDate(value: string) {
@@ -92,23 +99,23 @@ export function getSortOptions(
   const translate = (key: string, fallback: string) => t?.(key) ?? fallback;
 
   const baseOptions: SortOption[] = [
-    { value: "created-desc", label: translate("sort.createdDesc", "????") },
-    { value: "updated-desc", label: translate("sort.updatedDesc", "????") },
+    { value: "created-desc", label: translate("sort.createdDesc", "最近新增") },
+    { value: "updated-desc", label: translate("sort.updatedDesc", "最近更新") },
   ];
 
   if (moduleId === "offline") {
     return [
       ...baseOptions,
-      { value: "rating-desc", label: translate("sort.ratingDesc", "??????") },
-      { value: "rating-asc", label: translate("sort.ratingAsc", "??????") },
+      { value: "rating-desc", label: translate("sort.ratingDesc", "评分从高到低") },
+      { value: "rating-asc", label: translate("sort.ratingAsc", "评分从低到高") },
     ];
   }
 
   if (moduleId === "shopping") {
     return [
       ...baseOptions,
-      { value: "price-desc", label: translate("sort.priceDesc", "??????") },
-      { value: "price-asc", label: translate("sort.priceAsc", "??????") },
+      { value: "price-desc", label: translate("sort.priceDesc", "价格从高到低") },
+      { value: "price-asc", label: translate("sort.priceAsc", "价格从低到高") },
     ];
   }
 
@@ -117,6 +124,18 @@ export function getSortOptions(
 
 function compareDate(left: string, right: string) {
   return new Date(right).getTime() - new Date(left).getTime();
+}
+
+function getNumericValue(entry: KnowledgeEntry, field: "rating" | "price") {
+  if (field === "rating" && "rating" in entry && entry.rating !== null) {
+    return entry.rating;
+  }
+
+  if (field === "price" && "price" in entry && entry.price !== null) {
+    return entry.price;
+  }
+
+  return Number.NEGATIVE_INFINITY;
 }
 
 export function sortEntries(entries: KnowledgeEntry[], sortBy: SortOptionId) {
@@ -144,18 +163,6 @@ export function sortEntries(entries: KnowledgeEntry[], sortBy: SortOptionId) {
   return sorted;
 }
 
-function getNumericValue(entry: KnowledgeEntry, field: "rating" | "price") {
-  if (field === "rating" && "rating" in entry && entry.rating !== null) {
-    return entry.rating;
-  }
-
-  if (field === "price" && "price" in entry && entry.price !== null) {
-    return entry.price;
-  }
-
-  return Number.NEGATIVE_INFINITY;
-}
-
 export function matchesSearch(entry: KnowledgeEntry, search: string) {
   const query = search.trim().toLocaleLowerCase();
 
@@ -174,6 +181,11 @@ export function matchesSearch(entry: KnowledgeEntry, search: string) {
     getSecondaryMeta(entry),
     "content" in entry ? entry.content : "",
     "purpose" in entry ? entry.purpose : "",
+    "rawContent" in entry ? entry.rawContent : "",
+    "aiSummary" in entry ? entry.aiSummary : "",
+    "aiSuggestions" in entry ? entry.aiSuggestions : "",
+    "suggestedTargetModule" in entry ? entry.suggestedTargetModule : "",
+    "suggestedCategory" in entry ? entry.suggestedCategory : "",
   ]
     .join(" ")
     .toLocaleLowerCase();
@@ -187,7 +199,6 @@ export function entryMatchesTags(entry: KnowledgeEntry, selectedTags: string[]) 
   }
 
   const normalizedTags = entry.tags.map((tag) => normalizeTag(tag));
-
   return selectedTags.every((tag) => normalizedTags.includes(normalizeTag(tag)));
 }
 
@@ -197,10 +208,6 @@ export function toggleTag(tags: string[], target: string) {
   return tags.some((tag) => normalizeTag(tag) === normalizedTarget)
     ? tags.filter((tag) => normalizeTag(tag) !== normalizedTarget)
     : [...tags, target];
-}
-
-export function getNowDateString() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 export function createDraftFromEntry(
@@ -216,19 +223,21 @@ export function createDraftFromEntry(
     markdownContent,
     source: entry.source,
     location: entry.module === "offline" ? entry.location : "",
-    rating:
-      entry.module === "offline" && entry.rating !== null
-        ? String(entry.rating)
-        : "",
+    rating: entry.module === "offline" && entry.rating !== null ? String(entry.rating) : "",
     platform: entry.module === "shopping" ? entry.platform : "",
-    price:
-      entry.module === "shopping" && entry.price !== null
-        ? String(entry.price)
-        : "",
+    price: entry.module === "shopping" && entry.price !== null ? String(entry.price) : "",
     domain: entry.module === "websites" ? entry.domain : "",
-    access: entry.module === "websites" ? entry.access : "\u53ef\u8bbf\u95ee",
+    access: entry.module === "websites" ? entry.access : "可访问",
     content: entry.module === "websites" ? entry.content : "",
     purpose: entry.module === "websites" ? entry.purpose : "",
+    rawContent: entry.module === "inbox" ? entry.rawContent : "",
+    rawContentType: entry.module === "inbox" ? entry.rawContentType : "",
+    aiSummary: entry.module === "inbox" ? entry.aiSummary : "",
+    aiSuggestions: entry.module === "inbox" ? entry.aiSuggestions : "",
+    suggestedTargetModule: entry.module === "inbox" ? entry.suggestedTargetModule : "",
+    suggestedCategory: entry.module === "inbox" ? entry.suggestedCategory : "",
+    confidence:
+      entry.module === "inbox" && entry.confidence !== null ? String(entry.confidence) : "",
   };
 }
 
@@ -248,9 +257,16 @@ export function getEmptyDraft(moduleId: ModuleId): QuickAddDraft {
     platform: "",
     price: "",
     domain: "",
-    access: "\u53ef\u8bbf\u95ee",
+    access: "可访问",
     content: "",
     purpose: "",
+    rawContent: "",
+    rawContentType: moduleId === "inbox" ? "text" : "",
+    aiSummary: "",
+    aiSuggestions: "",
+    suggestedTargetModule: "",
+    suggestedCategory: "",
+    confidence: "",
   };
 }
 
@@ -260,7 +276,7 @@ function hasDraftValue(value: string) {
 
 export function mergeDraftWithAiResult(
   current: QuickAddDraft,
-  result: AiSuggestionResult,
+  result: AiSuggestionEntry,
 ): QuickAddDraft {
   const nextDraft: QuickAddDraft = { ...current };
   const nextTags = result.draft.tags
@@ -281,4 +297,11 @@ export function mergeDraftWithAiResult(
 
   nextDraft.tags = nextTags.join(", ");
   return nextDraft;
+}
+
+export function createDraftFromAiCandidate(
+  moduleId: ModuleId,
+  result: AiSuggestionEntry,
+): QuickAddDraft {
+  return mergeDraftWithAiResult(getEmptyDraft(moduleId), result);
 }

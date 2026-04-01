@@ -45,6 +45,12 @@
       summary: "Organize websites by purpose instead of letting bookmarks sprawl.",
       headers: ["Name", "Category", "Domain", "Access", "Status", "Tags"],
     },
+    inbox: {
+      label: "Inbox",
+      description: "Raw links, snippets, screenshot notes, ideas, and anything not organized yet",
+      summary: "Capture first, structure later. Analyze, move, or archive it when you're ready.",
+      headers: ["Title", "Category", "Raw content", "AI summary", "Status", "Tags"],
+    },
   },
   page: {
     brandTitle: "Personal Knowledge Archive",

@@ -1,3 +1,4 @@
+import { buildInboxPrompt } from "./inbox.mjs";
 import { buildOfflinePrompt } from "./offline.mjs";
 import { buildShoppingPrompt } from "./shopping.mjs";
 import { buildWebsitesPrompt } from "./websites.mjs";
@@ -15,6 +16,9 @@ export function buildModulePrompt(moduleId, context) {
     return buildWebsitesPrompt(context);
   }
 
+  if (moduleId === "inbox") {
+    return buildInboxPrompt(context);
+  }
+
   throw new Error("不支持的模块类型。");
 }
-

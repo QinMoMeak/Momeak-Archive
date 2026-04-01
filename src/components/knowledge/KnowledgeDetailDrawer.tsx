@@ -231,7 +231,13 @@ export function KnowledgeDetailDrawer({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <MarkdownContent content={detail.body} />
+                {detail.prefersPlainBody ? (
+                  <pre className="whitespace-pre-wrap break-words rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                    {detail.body}
+                  </pre>
+                ) : (
+                  <MarkdownContent content={detail.body} />
+                )}
               </CardContent>
             </Card>
 

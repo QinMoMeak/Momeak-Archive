@@ -1,8 +1,9 @@
 import type { ModuleId, QuickAddDraft } from "@/types/knowledge";
 
-export type AiSuggestionResult = {
+export type AiParseMode = "single" | "multiple";
+
+export type AiSuggestionEntry = {
   moduleId: ModuleId;
-  rawText: string;
   draft: QuickAddDraft;
   filledFields: Array<keyof QuickAddDraft>;
   missingFields: string[];
@@ -21,6 +22,11 @@ export type AiSuggestionResult = {
   unmatchedStatus: string;
   needsStatusConfirmation: boolean;
   availableStatuses: string[];
+  detectedContentType?: string;
+  suggestedTargetModule?: string;
+  suggestedNextAction?: string;
+  confidence?: number | null;
+  noteDraft?: string;
   siteContentSummary?: string;
   sitePurpose?: string;
   readerUsed?: boolean;
@@ -29,9 +35,29 @@ export type AiSuggestionResult = {
   readerContentLength?: number;
 };
 
+export type AiSingleSuggestionResult = {
+  mode: "single";
+  moduleId: ModuleId;
+  rawText: string;
+  entry: AiSuggestionEntry;
+};
+
+export type AiMultipleSuggestionResult = {
+  mode: "multiple";
+  moduleId: ModuleId;
+  rawText: string;
+  entries: AiSuggestionEntry[];
+  warnings: string[];
+};
+
+export type AiSuggestionResult =
+  | AiSingleSuggestionResult
+  | AiMultipleSuggestionResult;
+
 export type AiParseEntryPayload = {
   moduleId: ModuleId;
   rawText: string;
+  mode: AiParseMode;
 };
 
 export type AiParseEntryResponse = {

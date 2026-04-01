@@ -1,10 +1,17 @@
-import type { AiParseEntryResponse, AiSuggestionResult } from "@/types/ai";
+import type {
+  AiParseEntryPayload,
+  AiParseEntryResponse,
+  AiParseMode,
+  AiSuggestionResult,
+} from "@/types/ai";
 import type {
   AiSettingsView,
   SaveAiSettingsPayload,
 } from "@/types/ai-settings";
 import type {
   AuthSessionResponse,
+  BatchCreateKnowledgeEntriesPayload,
+  BatchCreateKnowledgeEntriesResponse,
   CategoryMutationResponse,
   CreateCategoryPayload,
   CreateKnowledgeEntryPayload,
@@ -26,9 +33,9 @@ const aiApiBase = "/api/ai";
 async function readErrorMessage(response: Response) {
   try {
     const payload = (await response.json()) as { error?: string };
-    return payload.error || "\u5199\u5165\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002";
+    return payload.error || "操作失败，请稍后重试。";
   } catch {
-    return "\u5199\u5165\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002";
+    return "操作失败，请稍后重试。";
   }
 }
 
@@ -58,14 +65,8 @@ export async function fetchKnowledgeMeta() {
   return payload.meta;
 }
 
-export async function createKnowledgeEntry(
-  moduleId: ModuleId,
-  draft: QuickAddDraft,
-) {
-  const payload: CreateKnowledgeEntryPayload = {
-    moduleId,
-    draft,
-  };
+export async function createKnowledgeEntry(moduleId: ModuleId, draft: QuickAddDraft) {
+  const payload: CreateKnowledgeEntryPayload = { moduleId, draft };
 
   const response = await fetch(knowledgeApiBase, {
     method: "POST",
@@ -81,6 +82,31 @@ export async function createKnowledgeEntry(
   }
 
   return (await response.json()) as SaveKnowledgeEntryResponse;
+}
+
+export async function createKnowledgeEntriesBatch(
+  moduleId: ModuleId,
+  drafts: QuickAddDraft[],
+) {
+  const payload: BatchCreateKnowledgeEntriesPayload = {
+    moduleId,
+    drafts,
+  };
+
+  const response = await fetch(`${knowledgeApiBase}/batch`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return (await response.json()) as BatchCreateKnowledgeEntriesResponse;
 }
 
 export async function updateKnowledgeEntry(
@@ -124,12 +150,9 @@ export async function deleteKnowledgeEntry(moduleId: ModuleId, entryId: string) 
 }
 
 export async function fetchEntryMarkdown(moduleId: ModuleId, entryId: string) {
-  const response = await fetch(
-    `${knowledgeApiBase}/content/${moduleId}/${entryId}`,
-    {
-      credentials: "same-origin",
-    },
-  );
+  const response = await fetch(`${knowledgeApiBase}/content/${moduleId}/${entryId}`, {
+    credentials: "same-origin",
+  });
 
   if (response.status === 404) {
     return "";
@@ -143,10 +166,7 @@ export async function fetchEntryMarkdown(moduleId: ModuleId, entryId: string) {
 }
 
 export async function createCategory(moduleId: ModuleId, name: string) {
-  const payload: CreateCategoryPayload = {
-    moduleId,
-    name,
-  };
+  const payload: CreateCategoryPayload = { moduleId, name };
 
   const response = await fetch(`${knowledgeApiBase}/categories`, {
     method: "POST",
@@ -169,11 +189,7 @@ export async function renameCategory(
   oldName: string,
   newName: string,
 ) {
-  const payload: RenameCategoryPayload = {
-    moduleId,
-    oldName,
-    newName,
-  };
+  const payload: RenameCategoryPayload = { moduleId, oldName, newName };
 
   const response = await fetch(`${knowledgeApiBase}/categories`, {
     method: "PUT",
@@ -263,25 +279,29 @@ export async function logoutAdmin() {
 export async function parseEntryWithAi(
   moduleId: ModuleId,
   rawText: string,
+  mode: AiParseMode,
 ) {
+  const payload: AiParseEntryPayload = {
+    moduleId,
+    rawText,
+    mode,
+  };
+
   const response = await fetch(`${aiApiBase}/parse-entry`, {
     method: "POST",
     credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      moduleId,
-      rawText,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
 
-  const payload = (await response.json()) as AiParseEntryResponse;
-  return payload.result as AiSuggestionResult;
+  const payloadJson = (await response.json()) as AiParseEntryResponse;
+  return payloadJson.result as AiSuggestionResult;
 }
 
 export async function fetchAiSettings() {

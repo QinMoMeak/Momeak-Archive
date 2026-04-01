@@ -1,6 +1,7 @@
+import { ZodError } from "zod";
+
 import { openAiTimeoutMs } from "../config.mjs";
 import { aiModelOutputJsonSchema, aiModelOutputSchema } from "./schema.mjs";
-import { ZodError } from "zod";
 
 function createTimeoutSignal(timeoutMs) {
   const controller = new AbortController();
@@ -25,7 +26,16 @@ function extractJsonCandidate(payload) {
   throw new Error("AI 返回内容为空，无法完成解析。");
 }
 
-export async function requestAiStructuredParse(runtimeConfig, systemPrompt, userPrompt) {
+export async function requestAiStructuredParse(
+  runtimeConfig,
+  systemPrompt,
+  userPrompt,
+  {
+    schema = aiModelOutputSchema,
+    jsonSchema = aiModelOutputJsonSchema,
+    schemaName = "knowledge_entry_parse",
+  } = {},
+) {
   if (!runtimeConfig.apiKey) {
     throw new Error(
       "当前没有可用的 API Key。请在 AI 设置中填写，或在 .env.local 中配置默认值。",
@@ -52,9 +62,9 @@ export async function requestAiStructuredParse(runtimeConfig, systemPrompt, user
         response_format: {
           type: "json_schema",
           json_schema: {
-            name: "knowledge_entry_parse",
+            name: schemaName,
             strict: true,
-            schema: aiModelOutputJsonSchema,
+            schema: jsonSchema,
           },
         },
       }),
@@ -70,7 +80,7 @@ export async function requestAiStructuredParse(runtimeConfig, systemPrompt, user
     const payload = await response.json();
     const candidate = extractJsonCandidate(payload);
     const parsed = JSON.parse(candidate);
-    return aiModelOutputSchema.parse(parsed);
+    return schema.parse(parsed);
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new Error("AI 返回了不可解析的 JSON，已中止本次自动填充。");
