@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
@@ -69,14 +69,14 @@ function DialogContent({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm dark:bg-slate-950/70"
       onClick={() => onOpenChange(false)}
     >
       <div
         role="dialog"
         aria-modal="true"
         className={cn(
-          "w-full max-w-lg border border-slate-200 bg-white shadow-2xl",
+          "w-full max-w-lg border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950",
           className,
         )}
         onClick={(event) => event.stopPropagation()}
@@ -111,7 +111,7 @@ function DialogDescription({
   className,
   ...props
 }: React.ComponentProps<"p">) {
-  return <p className={cn("text-sm text-slate-500", className)} {...props} />;
+  return <p className={cn("text-sm text-slate-500 dark:text-slate-400", className)} {...props} />;
 }
 
 export {

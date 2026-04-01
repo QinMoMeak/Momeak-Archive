@@ -176,7 +176,7 @@ export function KnowledgeDetailDrawer({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-4 px-4 py-4 sm:px-6 sm:py-5">
             <Card className="rounded-2xl border-slate-200 shadow-none">
               <CardHeader className="pb-4">

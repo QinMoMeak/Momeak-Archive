@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Bot,
   CloudUpload,
@@ -63,6 +63,9 @@ type DataSyncDialogProps = {
   onRestoreWebdavBackup: (remoteFile: string) => Promise<void>;
 };
 
+const sectionClassName =
+  "space-y-4 rounded-[24px] border border-slate-200 bg-slate-50/70 p-5 dark:border-slate-800 dark:bg-slate-900/60";
+
 function SelectionList({
   moduleOptions,
   selectedModules,
@@ -81,11 +84,11 @@ function SelectionList({
   }, 0);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950/80">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-medium text-slate-900">模块选择</div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="text-sm font-medium text-slate-900 dark:text-slate-100">模块选择</div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             已选 {selectedModules.length} 个模块，共 {totalEntries} 条记录
           </div>
         </div>
@@ -108,8 +111,8 @@ function SelectionList({
               key={module.id}
               className={`flex cursor-pointer items-start gap-3 rounded-2xl border px-3 py-3 text-sm transition ${
                 checked
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-slate-50 text-slate-700"
+                  ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
+                  : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
               }`}
             >
               <input
@@ -120,7 +123,7 @@ function SelectionList({
               />
               <div className="min-w-0">
                 <div className="font-medium">{module.label}</div>
-                <div className={checked ? "text-slate-300" : "text-slate-500"}>
+                <div className={checked ? "text-slate-300 dark:text-slate-700" : "text-slate-500 dark:text-slate-400"}>
                   {module.count} 条
                 </div>
               </div>
@@ -149,10 +152,7 @@ export function DataSyncDialog({
   onUploadWebdav,
   onRestoreWebdavBackup,
 }: DataSyncDialogProps) {
-  const allModules = useMemo(
-    () => moduleOptions.map((item) => item.id),
-    [moduleOptions],
-  );
+  const allModules = useMemo(() => moduleOptions.map((item) => item.id), [moduleOptions]);
   const [selectedModules, setSelectedModules] = useState<ModuleId[]>(allModules);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [inspection, setInspection] = useState<ImportInspectionResponse | null>(null);
@@ -160,9 +160,7 @@ export function DataSyncDialog({
   const [error, setError] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
   const [isExporting, setIsExporting] = useState(false);
-  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState<ImportTemplateKind | "">(
-    "",
-  );
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState<ImportTemplateKind | "">("");
   const [isPromptLoading, setIsPromptLoading] = useState(false);
   const [isInspecting, setIsInspecting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -219,11 +217,7 @@ export function DataSyncDialog({
       setIsExporting(true);
       await onExport(selectedModules);
     } catch (exportError) {
-      setError(
-        exportError instanceof Error
-          ? exportError.message
-          : "导出失败，请稍后重试。",
-      );
+      setError(exportError instanceof Error ? exportError.message : "导出失败，请稍后重试。");
     } finally {
       setIsExporting(false);
     }
@@ -240,11 +234,7 @@ export function DataSyncDialog({
       setIsDownloadingTemplate(kind);
       await onDownloadTemplate(selectedModules, kind);
     } catch (templateError) {
-      setError(
-        templateError instanceof Error
-          ? templateError.message
-          : "模板下载失败，请稍后重试。",
-      );
+      setError(templateError instanceof Error ? templateError.message : "模板下载失败，请稍后重试。");
     } finally {
       setIsDownloadingTemplate("");
     }
@@ -262,11 +252,7 @@ export function DataSyncDialog({
       setIsPromptLoading(true);
       setPromptData(await onGenerateAiPrompt(selectedModules));
     } catch (promptError) {
-      setError(
-        promptError instanceof Error
-          ? promptError.message
-          : "生成 AI 转换指引失败。",
-      );
+      setError(promptError instanceof Error ? promptError.message : "生成 AI 转换指引失败。");
     } finally {
       setIsPromptLoading(false);
     }
@@ -297,11 +283,7 @@ export function DataSyncDialog({
       setInspection(await onInspectImport(importFile));
     } catch (inspectError) {
       setInspection(null);
-      setError(
-        inspectError instanceof Error
-          ? inspectError.message
-          : "导入预校验失败。",
-      );
+      setError(inspectError instanceof Error ? inspectError.message : "导入预校验失败。");
     } finally {
       setIsInspecting(false);
     }
@@ -333,11 +315,7 @@ export function DataSyncDialog({
       setImportFile(null);
       setInspection(null);
     } catch (importError) {
-      setError(
-        importError instanceof Error
-          ? importError.message
-          : "导入失败，请稍后重试。",
-      );
+      setError(importError instanceof Error ? importError.message : "导入失败，请稍后重试。");
     } finally {
       setIsImporting(false);
     }
@@ -349,11 +327,7 @@ export function DataSyncDialog({
       setIsSavingWebdav(true);
       await onSaveWebdavSettings(webdavForm);
     } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "保存 WebDAV 配置失败。",
-      );
+      setError(saveError instanceof Error ? saveError.message : "保存 WebDAV 配置失败。");
     } finally {
       setIsSavingWebdav(false);
     }
@@ -365,11 +339,7 @@ export function DataSyncDialog({
       setIsRefreshingBackups(true);
       await onRefreshBackups();
     } catch (refreshError) {
-      setError(
-        refreshError instanceof Error
-          ? refreshError.message
-          : "加载远程备份失败。",
-      );
+      setError(refreshError instanceof Error ? refreshError.message : "加载远程备份失败。");
     } finally {
       setIsRefreshingBackups(false);
     }
@@ -381,11 +351,7 @@ export function DataSyncDialog({
       setIsResettingWebdav(true);
       await onResetWebdavSettings();
     } catch (resetError) {
-      setError(
-        resetError instanceof Error
-          ? resetError.message
-          : "清空 WebDAV 配置失败。",
-      );
+      setError(resetError instanceof Error ? resetError.message : "清空 WebDAV 配置失败。");
     } finally {
       setIsResettingWebdav(false);
     }
@@ -402,21 +368,14 @@ export function DataSyncDialog({
       setIsUploadingBackup(true);
       await onUploadWebdav(selectedModules);
     } catch (uploadError) {
-      setError(
-        uploadError instanceof Error
-          ? uploadError.message
-          : "上传 WebDAV 备份失败。",
-      );
+      setError(uploadError instanceof Error ? uploadError.message : "上传 WebDAV 备份失败。");
     } finally {
       setIsUploadingBackup(false);
     }
   }
 
   async function handleRestoreBackup(remoteFile: string) {
-    const confirmed = window.confirm(
-      `将从 WebDAV 下载并覆盖恢复备份：${remoteFile}。是否继续？`,
-    );
-
+    const confirmed = window.confirm(`将从 WebDAV 下载并覆盖恢复备份：${remoteFile}。是否继续？`);
     if (!confirmed) {
       return;
     }
@@ -426,11 +385,7 @@ export function DataSyncDialog({
       setRestoringFile(remoteFile);
       await onRestoreWebdavBackup(remoteFile);
     } catch (restoreError) {
-      setError(
-        restoreError instanceof Error
-          ? restoreError.message
-          : "恢复远程备份失败。",
-      );
+      setError(restoreError instanceof Error ? restoreError.message : "恢复远程备份失败。");
     } finally {
       setRestoringFile("");
     }
@@ -439,23 +394,23 @@ export function DataSyncDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl rounded-[28px] border-0 p-0">
-        <div className="border-b border-slate-100 bg-slate-900 px-6 py-5 text-white">
+        <div className="border-b border-slate-100 bg-slate-900 px-6 py-5 text-white dark:border-slate-800 dark:bg-slate-950">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
+            <DialogTitle className="flex items-center gap-2 text-xl text-white">
               <HardDriveUpload className="h-5 w-5" />
               导入 / 导出 / 同步
             </DialogTitle>
-            <DialogDescription className="mt-2 text-slate-300">
+            <DialogDescription className="mt-2 text-slate-300 dark:text-slate-400">
               本地导入导出和 WebDAV 同步统一使用 ZIP 快照，优先保证恢复可靠性和结构清晰。
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <div className="max-h-[84dvh] space-y-6 overflow-y-auto p-6">
+        <div className="scrollbar-none max-h-[84dvh] space-y-6 overflow-y-auto bg-white p-6 dark:bg-slate-950">
           <section className="space-y-4">
             <div>
-              <div className="text-base font-semibold text-slate-900">本地导出</div>
-              <div className="mt-1 text-sm text-slate-500">
+              <div className="text-base font-semibold text-slate-900 dark:text-slate-100">本地导出</div>
+              <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 支持单模块、多模块或全量导出，最终统一打包为 ZIP。
               </div>
             </div>
@@ -476,10 +431,10 @@ export function DataSyncDialog({
             </div>
           </section>
 
-          <section className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50/70 p-5">
+          <section className={sectionClassName}>
             <div>
-              <div className="text-base font-semibold text-slate-900">导入辅助</div>
-              <div className="mt-1 text-sm text-slate-500">
+              <div className="text-base font-semibold text-slate-900 dark:text-slate-100">导入辅助</div>
+              <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 先下载模板，再结合原始表格和 AI Prompt 生成符合要求的 ZIP，会比手工猜格式更稳。
               </div>
             </div>
@@ -512,13 +467,11 @@ export function DataSyncDialog({
             </div>
 
             {promptData && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950/80">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-medium text-slate-900">
-                      AI 导入 Prompt
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100">AI 导入 Prompt</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       适用于 {promptData.selectedModules.join("、")} 模块，可直接复制给外部 AI 或后续转换流程。
                     </div>
                   </div>
@@ -528,13 +481,9 @@ export function DataSyncDialog({
                   </Button>
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
                   {promptData.selectedModules.map((moduleId) => (
-                    <Badge
-                      key={moduleId}
-                      variant="secondary"
-                      className="rounded-full px-3 py-1"
-                    >
+                    <Badge key={moduleId} variant="secondary" className="rounded-full px-3 py-1">
                       {moduleId} 分类 {promptData.categoriesByModule[moduleId]?.length ?? 0} 项
                     </Badge>
                   ))}
@@ -543,20 +492,18 @@ export function DataSyncDialog({
                 <textarea
                   readOnly
                   value={promptData.prompt}
-                  className="mt-4 min-h-[280px] w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700 outline-none"
+                  className="mt-4 min-h-[280px] w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700 outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
                 />
 
-                {copyNotice && (
-                  <div className="mt-3 text-xs text-emerald-600">{copyNotice}</div>
-                )}
+                {copyNotice && <div className="mt-3 text-xs text-emerald-600 dark:text-emerald-400">{copyNotice}</div>}
               </div>
             )}
           </section>
 
-          <section className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50/70 p-5">
+          <section className={sectionClassName}>
             <div>
-              <div className="text-base font-semibold text-slate-900">本地导入</div>
-              <div className="mt-1 text-sm text-slate-500">
+              <div className="text-base font-semibold text-slate-900 dark:text-slate-100">本地导入</div>
+              <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 只接受 ZIP。导入前会先检查 manifest、模块范围和将要覆盖的内容。
               </div>
             </div>
@@ -572,28 +519,21 @@ export function DataSyncDialog({
             />
 
             <div className="flex flex-wrap gap-3">
-              <Button
-                variant="outline"
-                onClick={() => void handleInspectImport()}
-                disabled={!importFile || isInspecting}
-              >
+              <Button variant="outline" onClick={() => void handleInspectImport()} disabled={!importFile || isInspecting}>
                 <Upload className="mr-2 h-4 w-4" />
                 {isInspecting ? "正在校验..." : "校验 ZIP"}
               </Button>
-              <Button
-                onClick={() => void handleApplyImport()}
-                disabled={!inspection || isImporting}
-              >
+              <Button onClick={() => void handleApplyImport()} disabled={!inspection || isImporting}>
                 <RotateCcw className="mr-2 h-4 w-4" />
                 {isImporting ? "正在恢复..." : "覆盖恢复"}
               </Button>
             </div>
 
             {inspection && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-300">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary" className="rounded-full px-3 py-1">
-                    {inspection.manifest.exportScope === "full" ? "全量包" : "部分导出包"}
+                    {inspection.manifest.exportScope === "full" ? "全量导出包" : "部分导出包"}
                   </Badge>
                   <span>包含模块：{inspection.preview.exportedModules.join("、")}</span>
                 </div>
@@ -602,62 +542,52 @@ export function DataSyncDialog({
                     const item = inspection.preview.moduleStats[moduleId];
 
                     return (
-                      <div
-                        key={moduleId}
-                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                      >
-                        <div className="font-medium text-slate-900">{moduleId}</div>
-                        <div className="mt-1 text-xs text-slate-500">
+                      <div key={moduleId} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+                        <div className="font-medium text-slate-900 dark:text-slate-100">{moduleId}</div>
+                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                           导入 {item.importEntryCount} 条，当前 {item.currentEntryCount} 条
                         </div>
                       </div>
                     );
                   })}
                 </div>
-                <div className="mt-3 text-xs leading-6 text-slate-500">
-                  将覆盖模块：{inspection.preview.overwriteModules.join("、")}；不会影响：
-                  {inspection.preview.untouchedModules.join("、")}
+                <div className="mt-3 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                  将覆盖模块：{inspection.preview.overwriteModules.join("、")}；不影响：{inspection.preview.untouchedModules.join("、")}
                 </div>
               </div>
             )}
           </section>
 
-          <section className="space-y-4 rounded-[24px] border border-slate-200 bg-white p-5">
+          <section className="space-y-4 rounded-[24px] border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950/80">
             <div>
-              <div className="text-base font-semibold text-slate-900">WebDAV 配置</div>
-              <div className="mt-1 text-sm text-slate-500">
+              <div className="text-base font-semibold text-slate-900 dark:text-slate-100">WebDAV 配置</div>
+              <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 优先兼容坚果云。请使用第三方应用密码，不要使用账号登录密码。
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">服务器地址</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">服务器地址</label>
                 <Input
                   value={webdavForm.serverUrl}
                   onChange={(event) =>
-                    setWebdavForm((current) => ({
-                      ...current,
-                      serverUrl: event.target.value,
-                    }))
+                    setWebdavForm((current) => ({ ...current, serverUrl: event.target.value }))
                   }
                   placeholder={webdavSettings?.preset.serverUrl ?? ""}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">用户名</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">用户名</label>
                 <Input
                   value={webdavForm.username}
                   onChange={(event) =>
-                    setWebdavForm((current) => ({
-                      ...current,
-                      username: event.target.value,
-                    }))
+                    setWebdavForm((current) => ({ ...current, username: event.target.value }))
                   }
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">应用密码</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">应用密码</label>
                 <Input
                   type="password"
                   value={webdavForm.password}
@@ -672,35 +602,26 @@ export function DataSyncDialog({
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">远程目录</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">远程目录</label>
                 <Input
                   value={webdavForm.remotePath}
                   onChange={(event) =>
-                    setWebdavForm((current) => ({
-                      ...current,
-                      remotePath: event.target.value,
-                    }))
+                    setWebdavForm((current) => ({ ...current, remotePath: event.target.value }))
                   }
                   placeholder={webdavSettings?.preset.remotePath ?? ""}
                 />
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
               {webdavSettings?.preset.passwordHint}
               {webdavSettings?.storedSettings?.hasPassword && (
-                <div className="mt-2">
-                  当前已保存密码：{webdavSettings.storedSettings.maskedPassword}
-                </div>
+                <div className="mt-2">当前已保存密码：{webdavSettings.storedSettings.maskedPassword}</div>
               )}
             </div>
 
             <div className="flex flex-wrap justify-between gap-3">
-              <Button
-                variant="outline"
-                onClick={() => void handleResetWebdav()}
-                disabled={isSavingWebdav || isResettingWebdav}
-              >
+              <Button variant="outline" onClick={() => void handleResetWebdav()} disabled={isSavingWebdav || isResettingWebdav}>
                 {isResettingWebdav ? "正在清空..." : "恢复为空"}
               </Button>
               <Button onClick={() => void handleSaveWebdav()} disabled={isSavingWebdav}>
@@ -709,20 +630,16 @@ export function DataSyncDialog({
             </div>
           </section>
 
-          <section className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50/70 p-5">
+          <section className={sectionClassName}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-base font-semibold text-slate-900">WebDAV 同步</div>
-                <div className="mt-1 text-sm text-slate-500">
+                <div className="text-base font-semibold text-slate-900 dark:text-slate-100">WebDAV 同步</div>
+                <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   当前采用 ZIP 快照上传、列出远程备份、下载并恢复的手动同步方式。
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => void handleRefreshBackups()}
-                  disabled={isRefreshingBackups}
-                >
+                <Button variant="outline" onClick={() => void handleRefreshBackups()} disabled={isRefreshingBackups}>
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   {isRefreshingBackups ? "正在刷新..." : "刷新备份列表"}
                 </Button>
@@ -735,20 +652,20 @@ export function DataSyncDialog({
 
             <div className="space-y-2">
               {webdavBackups.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-400">
                   当前还没有检测到远程 ZIP 备份。请先上传一次快照，或刷新备份列表。
                 </div>
               ) : (
                 webdavBackups.map((file) => (
                   <div
                     key={file.remoteFile}
-                    className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 md:flex-row md:items-center md:justify-between"
+                    className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 md:flex-row md:items-center md:justify-between dark:border-slate-800 dark:bg-slate-950/80"
                   >
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-slate-900">
+                      <div className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
                         {file.remoteFile}
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         {file.lastModified || "未知时间"} · {file.contentLength} bytes
                       </div>
                     </div>
@@ -767,7 +684,7 @@ export function DataSyncDialog({
           </section>
 
           {error && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
               {error}
             </div>
           )}

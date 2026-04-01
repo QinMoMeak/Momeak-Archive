@@ -262,7 +262,7 @@ export function QuickAddEntryDialog({
           </DialogHeader>
         </div>
 
-        <div className="max-h-[80dvh] space-y-5 overflow-y-auto p-6">
+        <div className="scrollbar-none max-h-[80dvh] space-y-5 overflow-y-auto p-6">
           <AiAssistPanel
             moduleId={moduleId}
             rawText={aiRawText}

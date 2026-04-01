@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   AiProviderOption,
   AiSettingsView,
   SaveAiSettingsPayload,
@@ -47,4 +47,3 @@ export function getAiSettingsStatusText(settings: AiSettingsView) {
 
   return "当前还没有可用的 AI Key";
 }
-

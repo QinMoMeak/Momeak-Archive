@@ -85,25 +85,30 @@ export function formatDate(value: string) {
   }).format(date);
 }
 
-export function getSortOptions(moduleId: ModuleId): SortOption[] {
+export function getSortOptions(
+  moduleId: ModuleId,
+  t?: (key: string, params?: Record<string, string | number>) => string,
+): SortOption[] {
+  const translate = (key: string, fallback: string) => t?.(key) ?? fallback;
+
   const baseOptions: SortOption[] = [
-    { value: "created-desc", label: "\u6700\u8fd1\u65b0\u589e" },
-    { value: "updated-desc", label: "\u6700\u8fd1\u66f4\u65b0" },
+    { value: "created-desc", label: translate("sort.createdDesc", "????") },
+    { value: "updated-desc", label: translate("sort.updatedDesc", "????") },
   ];
 
   if (moduleId === "offline") {
     return [
       ...baseOptions,
-      { value: "rating-desc", label: "\u8bc4\u5206\u4ece\u9ad8\u5230\u4f4e" },
-      { value: "rating-asc", label: "\u8bc4\u5206\u4ece\u4f4e\u5230\u9ad8" },
+      { value: "rating-desc", label: translate("sort.ratingDesc", "??????") },
+      { value: "rating-asc", label: translate("sort.ratingAsc", "??????") },
     ];
   }
 
   if (moduleId === "shopping") {
     return [
       ...baseOptions,
-      { value: "price-desc", label: "\u4ef7\u683c\u4ece\u9ad8\u5230\u4f4e" },
-      { value: "price-asc", label: "\u4ef7\u683c\u4ece\u4f4e\u5230\u9ad8" },
+      { value: "price-desc", label: translate("sort.priceDesc", "??????") },
+      { value: "price-asc", label: translate("sort.priceAsc", "??????") },
     ];
   }
 

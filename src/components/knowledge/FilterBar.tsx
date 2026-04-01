@@ -1,7 +1,8 @@
-import { FilterX, Search } from "lucide-react";
+﻿import { FilterX, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useI18n } from "@/providers/I18nProvider";
 
 type FilterBarProps = {
   search: string;
@@ -24,11 +25,11 @@ type FilterBarProps = {
 };
 
 const selectClassName =
-  "h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200";
+  "h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-slate-500 dark:focus:ring-slate-700";
 
 function FilterLabel({ children }: { children: string }) {
   return (
-    <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-slate-400">
+    <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
       {children}
     </div>
   );
@@ -53,31 +54,33 @@ export function FilterBar({
   onClearFilters,
   onClearTagSelection,
 }: FilterBarProps) {
+  const { t } = useI18n();
+
   return (
-    <div className="space-y-4 rounded-[24px] border border-white/70 bg-white/82 p-4 shadow-[0_22px_55px_-42px_rgba(15,23,42,0.55)] backdrop-blur md:p-5">
+    <div className="space-y-4 rounded-[24px] border border-white/70 bg-white/82 p-4 shadow-[0_22px_55px_-42px_rgba(15,23,42,0.55)] backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/80 dark:shadow-[0_28px_80px_-50px_rgba(2,6,23,0.95)] md:p-5">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
         <div className="min-w-0 flex-1">
-          <FilterLabel>{"\u641c\u7d22"}</FilterLabel>
+          <FilterLabel>{t("filter.search")}</FilterLabel>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <Input
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder={"\u641c\u7d22\u540d\u79f0\u3001\u6807\u7b7e\u3001\u5907\u6ce8\u3001\u6765\u6e90..."}
-              className="h-10 rounded-xl border-slate-200 bg-white pl-9"
+              placeholder={t("filter.searchPlaceholder")}
+              className="h-10 rounded-xl border-slate-200 bg-white pl-9 dark:border-slate-700 dark:bg-slate-900"
             />
           </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[520px] xl:grid-cols-3">
           <div>
-            <FilterLabel>{"\u5206\u7c7b"}</FilterLabel>
+            <FilterLabel>{t("filter.category")}</FilterLabel>
             <select
               value={category}
               onChange={(event) => onCategoryChange(event.target.value)}
               className={`${selectClassName} w-full`}
             >
-              <option value="all">{"\u5168\u90e8\u5206\u7c7b"}</option>
+              <option value="all">{t("filter.allCategories")}</option>
               {categoryOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
@@ -87,13 +90,13 @@ export function FilterBar({
           </div>
 
           <div>
-            <FilterLabel>{"\u72b6\u6001"}</FilterLabel>
+            <FilterLabel>{t("filter.status")}</FilterLabel>
             <select
               value={status}
               onChange={(event) => onStatusChange(event.target.value)}
               className={`${selectClassName} w-full`}
             >
-              <option value="all">{"\u5168\u90e8\u72b6\u6001"}</option>
+              <option value="all">{t("filter.allStatuses")}</option>
               {statusOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
@@ -103,7 +106,7 @@ export function FilterBar({
           </div>
 
           <div>
-            <FilterLabel>{"\u6392\u5e8f"}</FilterLabel>
+            <FilterLabel>{t("filter.sort")}</FilterLabel>
             <select
               value={sortBy}
               onChange={(event) => onSortChange(event.target.value)}
@@ -119,22 +122,20 @@ export function FilterBar({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-slate-100 pt-3">
+      <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-slate-500">
-            {"\u5df2\u542f\u7528"}{" "}
-            <span className="font-medium text-slate-800">{activeFilterCount}</span>{" "}
-            {"\u4e2a\u7b5b\u9009\u6761\u4ef6"}
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            {t("filter.activeFilters", { count: activeFilterCount })}
           </div>
           <Button variant="outline" size="sm" onClick={onClearFilters}>
             <FilterX className="mr-1 h-4 w-4" />
-            {"\u6e05\u7a7a\u7b5b\u9009"}
+            {t("page.clearFilters")}
           </Button>
         </div>
 
-        <div className="rounded-2xl bg-slate-50/80 px-3 py-3">
-          <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-slate-400">
-            {"\u6807\u7b7e"}
+        <div className="rounded-2xl bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70">
+          <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+            {t("filter.tags")}
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -142,11 +143,11 @@ export function FilterBar({
               onClick={onClearTagSelection}
               className={`rounded-full border px-3 py-1.5 text-xs transition ${
                 selectedTags.length === 0
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                  ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-900"
               }`}
             >
-              {"\u5168\u90e8\u6807\u7b7e"}
+              {t("filter.allTags")}
             </button>
             {tagOptions.map((tag) => {
               const active = selectedTags.includes(tag);
@@ -158,8 +159,8 @@ export function FilterBar({
                   onClick={() => onTagToggle(tag)}
                   className={`rounded-full border px-3 py-1.5 text-xs transition ${
                     active
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                      ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-900"
                   }`}
                 >
                   #{tag}

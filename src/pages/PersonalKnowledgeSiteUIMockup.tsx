@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+﻿import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import {
   Globe,
@@ -6,7 +6,6 @@ import {
   LogOut,
   Pencil,
   Plus,
-  Settings2,
   Shield,
   ShoppingBag,
   Store,
@@ -20,6 +19,7 @@ import { KnowledgeDetailDrawer } from "@/components/knowledge/KnowledgeDetailDra
 import { QuickAddEntryDialog } from "@/components/knowledge/QuickAddEntryDialog";
 import { AiSettingsDialog } from "@/components/settings/AiSettingsDialog";
 import { DataSyncDialog } from "@/components/settings/DataSyncDialog";
+import { InterfaceSettingsPanel } from "@/components/settings/InterfaceSettingsPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,6 +88,7 @@ import type {
   WebdavSettingsView,
   RemoteBackupFile,
 } from "@/types/data-sync";
+import { useI18n } from "@/providers/I18nProvider";
 
 const moduleIcons = {
   store: Store,
@@ -109,19 +110,20 @@ function StatCard({
   hint: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-slate-200/80 bg-white/88 px-4 py-4 shadow-[0_20px_45px_-38px_rgba(15,23,42,0.65)] backdrop-blur">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+    <div className="rounded-[24px] border border-slate-200/80 bg-white/88 px-4 py-4 shadow-[0_20px_45px_-38px_rgba(15,23,42,0.65)] backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/88 dark:shadow-[0_24px_60px_-42px_rgba(2,6,23,0.9)]">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
         {title}
       </div>
-      <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
+      <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
         {value}
       </div>
-      <div className="mt-2 text-xs leading-5 text-slate-500">{hint}</div>
+      <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{hint}</div>
     </div>
   );
 }
 
 export default function PersonalKnowledgeSiteUIMockup() {
+  const { t, moduleLabel, moduleDescription, moduleSummary, moduleHeaders } = useI18n();
   const [knowledgeData, setKnowledgeData] =
     useState<KnowledgeData>(initialKnowledgeData);
   const [knowledgeMeta, setKnowledgeMeta] = useState<KnowledgeMeta>({
@@ -160,6 +162,9 @@ export default function PersonalKnowledgeSiteUIMockup() {
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
 
   const currentModule = moduleDefinitions[activeModule];
+  const translatedCurrentModuleLabel = moduleLabel(activeModule);
+  const translatedCurrentModuleSummary = moduleSummary(activeModule);
+  const translatedHeaders = moduleHeaders(activeModule);
   const Icon = moduleIcons[currentModule.iconKey];
   const rows = knowledgeData[activeModule];
   const moduleEntryCounts = useMemo(
@@ -239,6 +244,98 @@ export default function PersonalKnowledgeSiteUIMockup() {
     return () => window.clearTimeout(timer);
   }, [actionNotice]);
 
+  const categoryOptions = useMemo(
+    () => getUniqueValues(rows.map((item) => item.category)),
+    [rows],
+  );
+
+  const statusOptions = useMemo(
+    () => getUniqueValues(rows.map((item) => item.status)),
+    [rows],
+  );
+
+  const tagOptions = useMemo(
+    () => getUniqueValues(rows.flatMap((item) => item.tags)),
+    [rows],
+  );
+
+  const filteredRows = useMemo(() => {
+    const next = rows.filter((item) => {
+      if (!matchesSearch(item, search)) {
+        return false;
+      }
+
+      if (categoryFilter !== "all" && item.category !== categoryFilter) {
+        return false;
+      }
+
+      if (statusFilter !== "all" && item.status !== statusFilter) {
+        return false;
+      }
+
+      return entryMatchesTags(item, selectedTags);
+    });
+
+    return sortEntries(next, sortBy);
+  }, [rows, search, categoryFilter, statusFilter, selectedTags, sortBy]);
+
+  const visibleTagPool = useMemo(
+    () => getUniqueValues(filteredRows.flatMap((item) => item.tags)),
+    [filteredRows],
+  );
+
+  const activeFilterCount = [
+    search.trim().length > 0,
+    categoryFilter !== "all",
+    statusFilter !== "all",
+    selectedTags.length > 0,
+  ].filter(Boolean).length;
+
+  const latestUpdated = filteredRows[0]?.updatedAt
+    ? formatDate(filteredRows[0].updatedAt)
+    : "--";
+
+  const manageableCategories = knowledgeMeta.categories[activeModule] ?? [];
+
+  const categoryUsageCounts = useMemo(
+    () =>
+      rows.reduce<Record<string, number>>((result, entry) => {
+        result[entry.category] = (result[entry.category] ?? 0) + 1;
+        return result;
+      }, {}),
+    [rows],
+  );
+
+  const editorCategoryOptions = useMemo(
+    () =>
+      getUniqueValues([
+        ...moduleDefinitions[editorModuleId].defaultCategories,
+        ...(knowledgeMeta.categories[editorModuleId] ?? []),
+      ]),
+    [editorModuleId, knowledgeMeta.categories],
+  );
+
+  const editorStatusOptions = useMemo(
+    () =>
+      getUniqueValues([
+        ...moduleDefinitions[editorModuleId].defaultStatuses,
+        ...editorRows.map((entry) => entry.status),
+      ]),
+    [editorModuleId, editorRows],
+  );
+
+  function handleToggleTag(tag: string) {
+    setSelectedTags((current) => toggleTag(current, tag));
+  }
+
+  function handleClearFilters() {
+    setSearch("");
+    setCategoryFilter("all");
+    setStatusFilter("all");
+    setSelectedTags([]);
+    setSortBy("updated-desc");
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -294,7 +391,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
           setActionError(
             aiResult.reason instanceof Error
               ? aiResult.reason.message
-              : "无法加载 AI 设置。",
+              : "Unable to load AI settings.",
           );
         }
 
@@ -304,7 +401,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
           setActionError(
             webdavResult.reason instanceof Error
               ? webdavResult.reason.message
-              : "无法加载 WebDAV 设置。",
+              : "Unable to load WebDAV settings.",
           );
         }
       },
@@ -315,124 +412,21 @@ export default function PersonalKnowledgeSiteUIMockup() {
     };
   }, [isAdmin]);
 
-  const categoryOptions = useMemo(
-    () => getUniqueValues(rows.map((item) => item.category)),
-    [rows],
-  );
-
-  const statusOptions = useMemo(
-    () => getUniqueValues(rows.map((item) => item.status)),
-    [rows],
-  );
-
-  const editorCategoryOptions = useMemo(
-    () =>
-      getUniqueValues([
-        ...knowledgeMeta.categories[editorModuleId],
-        ...editorRows.map((item) => item.category),
-      ]),
-    [editorModuleId, editorRows, knowledgeMeta.categories],
-  );
-
-  const editorStatusOptions = useMemo(
-    () => getUniqueValues(editorRows.map((item) => item.status)),
-    [editorRows],
-  );
-
-  const tagOptions = useMemo(
-    () => getUniqueValues(rows.flatMap((item) => item.tags)),
-    [rows],
-  );
-
-  const categoryUsageCounts = useMemo(
-    () =>
-      rows.reduce<Record<string, number>>((result, entry) => {
-        result[entry.category] = (result[entry.category] ?? 0) + 1;
-        return result;
-      }, {}),
-    [rows],
-  );
-
-  const manageableCategories = useMemo(
-    () =>
-      getUniqueValues([
-        ...knowledgeMeta.categories[activeModule],
-        ...rows.map((item) => item.category),
-      ]),
-    [activeModule, knowledgeMeta.categories, rows],
-  );
-
-  const filteredRows = useMemo(() => {
-    const filtered = rows.filter((item) => {
-      if (!matchesSearch(item, search)) {
-        return false;
-      }
-
-      if (categoryFilter !== "all" && item.category !== categoryFilter) {
-        return false;
-      }
-
-      if (statusFilter !== "all" && item.status !== statusFilter) {
-        return false;
-      }
-
-      if (!entryMatchesTags(item, selectedTags)) {
-        return false;
-      }
-
-      return true;
-    });
-
-    return sortEntries(filtered, sortBy);
-  }, [categoryFilter, rows, search, selectedTags, sortBy, statusFilter]);
-
-  const activeFilterCount = [
-    search.trim() ? 1 : 0,
-    categoryFilter !== "all" ? 1 : 0,
-    statusFilter !== "all" ? 1 : 0,
-    selectedTags.length,
-  ].reduce((total, value) => total + value, 0);
-
-  const visibleTagPool = useMemo(
-    () => getUniqueValues(filteredRows.flatMap((item) => item.tags)),
-    [filteredRows],
-  );
-
-  const latestUpdated = useMemo(() => {
-    if (rows.length === 0) {
-      return "\u6682\u65e0";
-    }
-
-    return formatDate(sortEntries(rows, "updated-desc")[0].updatedAt);
-  }, [rows]);
-
-  function handleToggleTag(tag: string) {
-    setSelectedTags((current) => toggleTag(current, tag));
-  }
-
-  function handleClearFilters() {
-    setSearch("");
-    setCategoryFilter("all");
-    setStatusFilter("all");
-    setSelectedTags([]);
-    setSortBy("updated-desc");
-  }
-
-  function handleSidebarResizeStart(startEvent: React.PointerEvent<HTMLDivElement>) {
+  function handleSidebarResizeStart(event: React.PointerEvent<HTMLDivElement>) {
     if (window.innerWidth < 1024) {
       return;
     }
 
-    const startX = startEvent.clientX;
+    event.preventDefault();
+    const startX = event.clientX;
     const startWidth = sidebarWidth;
+
     document.body.style.userSelect = "none";
     document.body.style.cursor = "col-resize";
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const nextWidth = startWidth + (moveEvent.clientX - startX);
-      setSidebarWidth(
-        Math.min(maxSidebarWidth, Math.max(minSidebarWidth, nextWidth)),
-      );
+      setSidebarWidth(Math.min(maxSidebarWidth, Math.max(minSidebarWidth, nextWidth)));
     };
 
     const handlePointerUp = () => {
@@ -602,23 +596,23 @@ export default function PersonalKnowledgeSiteUIMockup() {
   async function handleSaveAiSettings(payload: SaveAiSettingsPayload) {
     const result = await saveAiSettings(payload);
     setAiSettings(result);
-    setActionNotice("AI 设置已保存，新的解析请求会立即使用最新配置。");
+    setActionNotice("AI settings saved.");
   }
 
   async function handleResetAiSettings() {
     const result = await resetAiSettings();
     setAiSettings(result);
-    setActionNotice("已恢复为默认 AI 配置。");
+    setActionNotice("AI settings restored to defaults.");
   }
 
   async function handleExportKnowledge(modules: ModuleId[]) {
     const exported = await exportKnowledgeZip(modules);
     triggerBlobDownload(exported.blob, exported.fileName);
     setActionNotice(
-      `已导出 ${modules.length} 个模块，共 ${summarizeSelectedModules(
+      `Exported ${modules.length} module(s), ${summarizeSelectedModules(
         modules,
         moduleEntryCounts,
-      )} 条记录。`,
+      )} records in total.`,
     );
   }
 
@@ -630,8 +624,8 @@ export default function PersonalKnowledgeSiteUIMockup() {
     triggerBlobDownload(exported.blob, exported.fileName);
     setActionNotice(
       kind === "empty"
-        ? `已下载空模板，覆盖 ${modules.length} 个模块。`
-        : `已下载示例模板，覆盖 ${modules.length} 个模块。`,
+        ? `Downloaded empty template for ${modules.length} module(s).`
+        : `Downloaded example template for ${modules.length} module(s).`,
     );
   }
 
@@ -649,20 +643,20 @@ export default function PersonalKnowledgeSiteUIMockup() {
     setKnowledgeMeta(result.meta);
     setSelectedItem(null);
     setEditorState(null);
-    setActionNotice(`已覆盖恢复模块：${result.appliedModules.join("、")}。`);
+    setActionNotice(`Imported modules: ${result.appliedModules.join(", ")}.`);
   }
 
   async function handleSaveWebdavSettings(payload: SaveWebdavSettingsPayload) {
     const result = await saveWebdavSettings(payload);
     setWebdavSettings(result);
-    setActionNotice("已保存 WebDAV 配置。");
+    setActionNotice("WebDAV settings saved.");
   }
 
   async function handleResetWebdavSettings() {
     const result = await resetWebdavSettings();
     setWebdavSettings(result);
     setWebdavBackups([]);
-    setActionNotice("已清空 WebDAV 配置。");
+    setActionNotice("WebDAV settings cleared.");
   }
 
   async function handleRefreshWebdavBackups() {
@@ -672,7 +666,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
 
   async function handleUploadWebdavBackup(modules: ModuleId[]) {
     const result = await uploadKnowledgeBackupToWebdav(modules);
-    setActionNotice(`已上传 ZIP 快照到 WebDAV：${result.remoteFile}`);
+    setActionNotice(`Uploaded ZIP snapshot to WebDAV: ${result.remoteFile}`);
     await handleRefreshWebdavBackups();
   }
 
@@ -682,44 +676,44 @@ export default function PersonalKnowledgeSiteUIMockup() {
     setKnowledgeMeta(result.meta);
     setSelectedItem(null);
     setEditorState(null);
-    setActionNotice(`已从 WebDAV 恢复备份：${remoteFile}`);
+    setActionNotice(`Restored backup from WebDAV: ${remoteFile}`);
     await handleRefreshWebdavBackups();
   }
 
   const emptyStateText =
     rows.length === 0
-      ? "\u5f53\u524d\u6a21\u5757\u8fd8\u6ca1\u6709\u5185\u5bb9\uff0c\u53ef\u4ee5\u5148\u5feb\u901f\u65b0\u589e\u4e00\u6761\u3002"
-      : "\u6ca1\u6709\u5339\u914d\u5230\u76f8\u5173\u5185\u5bb9\uff0c\u53ef\u4ee5\u6e05\u7a7a\u7b5b\u9009\u6216\u8c03\u6574\u5173\u952e\u8bcd\u3002";
+      ? t("page.emptyModule")
+      : t("page.emptyFiltered");
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(15,23,42,0.08),_transparent_28%),linear-gradient(180deg,#f8fafc_0%,#f8fafc_100%)] text-slate-900">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(15,23,42,0.08),_transparent_28%),linear-gradient(180deg,#f8fafc_0%,#f8fafc_100%)] text-slate-900 dark:bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.08),_transparent_26%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.06),_transparent_24%),linear-gradient(180deg,#020617_0%,#020617_100%)] dark:text-slate-100">
       <div className="flex min-h-screen flex-col lg:flex-row">
         <div
-          className="relative w-full border-b border-slate-200/80 bg-white/82 backdrop-blur-xl lg:sticky lg:top-0 lg:h-screen lg:w-[var(--sidebar-width)] lg:min-w-[var(--sidebar-width)] lg:shrink-0 lg:border-b-0 lg:border-r"
+          className="relative w-full border-b border-slate-200/80 bg-white/82 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/82 lg:sticky lg:top-0 lg:h-screen lg:w-[var(--sidebar-width)] lg:min-w-[var(--sidebar-width)] lg:shrink-0 lg:border-b-0 lg:border-r"
           style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
         >
-          <aside className="flex w-full flex-col justify-between gap-8 p-5 lg:h-screen lg:overflow-y-auto lg:p-6">
+          <aside className="scrollbar-none flex w-full flex-col justify-between gap-8 p-5 lg:h-screen lg:overflow-y-auto lg:p-6">
             <div>
-              <div className="mb-8 rounded-[28px] border border-slate-200/80 bg-white/90 p-5 shadow-[0_24px_55px_-42px_rgba(15,23,42,0.5)]">
-                <div className="text-xs uppercase tracking-[0.24em] text-slate-400">
+              <div className="mb-8 rounded-[28px] border border-slate-200/80 bg-white/90 p-5 shadow-[0_24px_55px_-42px_rgba(15,23,42,0.5)] dark:border-slate-800/80 dark:bg-slate-950/90 dark:shadow-[0_24px_60px_-40px_rgba(2,6,23,0.9)]">
+                <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">
                   Personal KB
                 </div>
                 <div className="mt-3 flex items-start justify-between gap-4">
                   <div>
-                    <h1 className="text-[32px] font-semibold tracking-tight text-slate-900">
-                      {"\u4e2a\u4eba\u77e5\u8bc6\u6536\u96c6\u7ad9"}
+                    <h1 className="text-[32px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                      {t("page.brandTitle")}
                     </h1>
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                    <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
                       {
-                        "\u5728\u516c\u5f00\u9605\u8bfb\u4e0e\u7ba1\u7406\u7ef4\u62a4\u4e4b\u95f4\u4fdd\u6301\u540c\u4e00\u5957\u4fe1\u606f\u7ed3\u6784\uff0c\u8ba9\u8bb0\u5f55\u3001\u7b5b\u9009\u548c\u56de\u67e5\u90fd\u66f4\u987a\u624b\u3002"
+                        t("page.brandDescription")
                       }
                     </p>
                   </div>
                   <Badge
                     variant="secondary"
-                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-slate-500"
+                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
                   >
-                    Live
+                    {t("page.liveLabel")}
                   </Badge>
                 </div>
               </div>
@@ -735,27 +729,27 @@ export default function PersonalKnowledgeSiteUIMockup() {
                       onClick={() => setActiveModule(module.id)}
                       className={`w-full rounded-[24px] border p-4 text-left transition-all ${
                         active
-                          ? "border-slate-900 bg-slate-900 text-white shadow-[0_26px_60px_-42px_rgba(15,23,42,0.85)]"
-                          : "border-slate-200/80 bg-white/85 text-slate-800 hover:border-slate-300 hover:bg-white"
+                          ? "border-slate-900 bg-slate-900 text-white shadow-[0_26px_60px_-42px_rgba(15,23,42,0.85)] dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
+                          : "border-slate-200/80 bg-white/85 text-slate-800 hover:border-slate-300 hover:bg-white dark:border-slate-800/80 dark:bg-slate-950/85 dark:text-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-950"
                       }`}
                       type="button"
                     >
                       <div className="flex items-start gap-3">
                         <div
                           className={`rounded-2xl p-2.5 ${
-                            active ? "bg-white/12" : "bg-slate-100"
+                            active ? "bg-white/12 dark:bg-slate-900/15" : "bg-slate-100 dark:bg-slate-900"
                           }`}
                         >
                           <ModuleIcon className="h-5 w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-3">
-                            <div className="font-medium">{module.label}</div>
+                            <div className="font-medium">{moduleLabel(module.id)}</div>
                             <div
                               className={`rounded-full px-2.5 py-1 text-[11px] ${
                                 active
-                                  ? "bg-white/12 text-white"
-                                  : "bg-slate-100 text-slate-500"
+                                  ? "bg-white/12 text-white dark:bg-slate-900/15 dark:text-slate-950"
+                                  : "bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-400"
                               }`}
                             >
                               {moduleEntryCounts[module.id]}
@@ -766,7 +760,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                               active ? "text-slate-300" : "text-slate-500"
                             }`}
                           >
-                            {module.description}
+                            {moduleDescription(module.id)}
                           </div>
                         </div>
                       </div>
@@ -777,73 +771,48 @@ export default function PersonalKnowledgeSiteUIMockup() {
             </div>
 
             <div className="space-y-3">
-              {isAdmin && (
-                <div className="space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (aiSettings) {
-                        setIsAiSettingsOpen(true);
-                      }
-                    }}
-                    disabled={!aiSettings}
-                    className="w-full rounded-[24px] border border-slate-200/80 bg-white/90 px-4 py-3 text-left shadow-[0_18px_45px_-38px_rgba(15,23,42,0.5)] transition hover:border-slate-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                      <Settings2 className="h-4 w-4 text-slate-500" />
-                      AI 设置
-                    </div>
-                    <div className="mt-1 text-xs leading-5 text-slate-500">
-                      {aiSettings
-                        ? getAiSettingsStatusText(aiSettings)
-                        : "加载当前 AI 配置中..."}
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsDataSyncOpen(true);
-                      if (webdavSettings?.effectiveSettings) {
-                        void handleRefreshWebdavBackups().catch((error) => {
-                          setActionError(
-                            error instanceof Error
-                              ? error.message
-                              : "无法加载 WebDAV 备份列表。",
-                          );
-                        });
-                      }
-                    }}
-                    className="w-full rounded-[24px] border border-slate-200/80 bg-white/90 px-4 py-3 text-left shadow-[0_18px_45px_-38px_rgba(15,23,42,0.5)] transition hover:border-slate-300 hover:bg-white"
-                  >
-                    <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                      <FolderTree className="h-4 w-4 text-slate-500" />
-                      数据同步
-                    </div>
-                    <div className="mt-1 text-xs leading-5 text-slate-500">
-                      导入导出 ZIP、配置 WebDAV、上传或恢复远程备份。
-                    </div>
-                  </button>
-                </div>
-              )}
+              <InterfaceSettingsPanel
+                isAdmin={isAdmin}
+                aiSettingsDisabled={!aiSettings}
+                aiSettingsStatus={
+                  aiSettings
+                    ? getAiSettingsStatusText(aiSettings)
+                    : t("page.aiSettingsLoading")
+                }
+                onOpenAiSettings={() => {
+                  if (aiSettings) {
+                    setIsAiSettingsOpen(true);
+                  }
+                }}
+                onOpenDataSync={() => {
+                  setIsDataSyncOpen(true);
+                  if (webdavSettings?.effectiveSettings) {
+                    void handleRefreshWebdavBackups().catch((error) => {
+                      setActionError(
+                        error instanceof Error
+                          ? error.message
+                          : "Unable to load the WebDAV backup list.",
+                      );
+                    });
+                  }
+                }}
+              />
 
               <Card className="rounded-[24px] border-0 bg-slate-900 text-white shadow-[0_28px_70px_-48px_rgba(15,23,42,1)]">
                 <CardContent className="p-4">
                   <div className="text-sm font-medium">
-                    {"\u5f53\u524d\u8bbf\u95ee\u6a21\u5f0f"}
+                    {t("page.currentAccessMode")}
                   </div>
                   <div className="mt-2 flex items-center gap-2">
                     <Badge
                       variant={isAdmin ? "default" : "secondary"}
                       className="rounded-full px-3 py-1"
                     >
-                      {isAdmin ? "\u7f16\u8f91\u6a21\u5f0f" : "\u516c\u5f00\u53ea\u8bfb"}
+                      {isAdmin ? t("page.adminMode") : t("page.publicReadOnly")}
                     </Badge>
                   </div>
                   <div className="mt-3 text-sm leading-6 text-slate-300">
-                    {isAdmin
-                      ? "\u65b0\u589e\u3001\u7f16\u8f91\u3001\u5220\u9664\u5df2\u5728\u5f53\u524d\u524d\u53f0\u9875\u9762\u5c31\u5730\u5f00\u542f\u3002"
-                      : "\u8bbf\u5ba2\u53ef\u4ee5\u7ee7\u7eed\u516c\u5f00\u9605\u8bfb\uff0c\u4e0d\u4f1a\u770b\u5230\u5199\u5165\u76f8\u5173\u64cd\u4f5c\u3002"}
+                    {isAdmin ? t("page.adminHint") : t("page.publicHint")}
                   </div>
                 </CardContent>
               </Card>
@@ -855,7 +824,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
             onPointerDown={handleSidebarResizeStart}
             className="absolute right-0 top-0 hidden h-full w-3 -translate-x-1/2 cursor-col-resize lg:block"
           >
-            <div className="mx-auto h-full w-px bg-slate-200 transition hover:bg-slate-400" />
+            <div className="mx-auto h-full w-px bg-slate-200 transition hover:bg-slate-400 dark:bg-slate-800 dark:hover:bg-slate-600" />
           </div>
         </div>
 
@@ -866,26 +835,26 @@ export default function PersonalKnowledgeSiteUIMockup() {
             transition={{ duration: 0.18 }}
             className="mx-auto max-w-[1480px] space-y-5"
           >
-            <section className="rounded-[28px] border border-white/70 bg-white/82 px-5 py-5 shadow-[0_28px_80px_-52px_rgba(15,23,42,0.55)] backdrop-blur md:px-6">
+            <section className="rounded-[28px] border border-white/70 bg-white/82 px-5 py-5 shadow-[0_28px_80px_-52px_rgba(15,23,42,0.55)] backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/82 dark:shadow-[0_28px_80px_-52px_rgba(2,6,23,0.95)] md:px-6">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
                       <Icon className="h-3.5 w-3.5" />
-                      {"\u5f53\u524d\u6a21\u5757"}
+                      {t("page.currentModule")}
                     </div>
                     {isAdmin && (
                       <Badge className="rounded-full px-3 py-1">
                         <Shield className="mr-1 h-3.5 w-3.5" />
-                        {"\u7f16\u8f91\u6a21\u5f0f"}
+                        {t("page.adminMode")}
                       </Badge>
                     )}
                   </div>
-                  <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 md:text-[40px]">
-                    {currentModule.label}
+                  <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-100 md:text-[40px]">
+                    {translatedCurrentModuleLabel}
                   </h2>
-                  <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500 md:text-[15px]">
-                    {currentModule.summary}
+                  <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500 dark:text-slate-400 md:text-[15px]">
+                    {translatedCurrentModuleSummary}
                   </p>
                 </div>
 
@@ -897,7 +866,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                         onClick={openCreateDialog}
                       >
                         <Plus className="mr-2 h-4 w-4" />
-                        {"\u5feb\u901f\u65b0\u589e\u6761\u76ee"}
+                        {t("page.quickAdd")}
                       </Button>
                       <Button
                         variant="outline"
@@ -905,7 +874,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                         onClick={() => setIsCategoryManagerOpen(true)}
                       >
                         <FolderTree className="mr-2 h-4 w-4" />
-                        {"\u7ba1\u7406\u5206\u7c7b"}
+                        {t("page.manageCategories")}
                       </Button>
                       <Button
                         variant="outline"
@@ -913,7 +882,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                         onClick={handleLogout}
                       >
                         <LogOut className="mr-2 h-4 w-4" />
-                        {"\u9000\u51fa"}
+                        {t("page.logout")}
                       </Button>
                     </>
                   ) : (
@@ -923,7 +892,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                       onClick={() => setIsAdminDialogOpen(true)}
                     >
                       <Shield className="mr-2 h-4 w-4" />
-                      {"\u7ba1\u7406\u5458\u767b\u5f55"}
+                      {t("page.adminLogin")}
                     </Button>
                   )}
                 </div>
@@ -931,31 +900,31 @@ export default function PersonalKnowledgeSiteUIMockup() {
 
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 <StatCard
-                  title={"\u5f53\u524d\u53ef\u89c1"}
+                  title={t("page.visible")}
                   value={filteredRows.length}
-                  hint={`\u6a21\u5757\u603b\u8ba1 ${rows.length} \u6761`}
+                  hint={t("page.totalRecords", { count: rows.length })}
                 />
                 <StatCard
-                  title={"\u6807\u7b7e\u6c60"}
+                  title={t("page.tagPool")}
                   value={visibleTagPool.length}
-                  hint={"\u70b9\u51fb\u6807\u7b7e\u53ef\u76f4\u63a5\u8fdb\u5165\u7b5b\u9009"}
+                  hint={t("page.tagHint")}
                 />
                 <StatCard
-                  title={"\u6700\u8fd1\u66f4\u65b0"}
+                  title={t("page.latestUpdated")}
                   value={latestUpdated}
-                  hint={"\u9ed8\u8ba4\u6309\u66f4\u65b0\u65f6\u95f4\u6392\u5e8f"}
+                  hint={t("page.latestUpdatedHint")}
                 />
               </div>
             </section>
 
             {actionError && (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
                 {actionError}
               </div>
             )}
 
             {actionNotice && (
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
                 {actionNotice}
               </div>
             )}
@@ -974,22 +943,22 @@ export default function PersonalKnowledgeSiteUIMockup() {
               tagOptions={tagOptions}
               sortBy={sortBy}
               onSortChange={(value) => setSortBy(value as SortOptionId)}
-              sortOptions={getSortOptions(activeModule)}
+              sortOptions={getSortOptions(activeModule, t)}
               activeFilterCount={activeFilterCount}
               onClearFilters={handleClearFilters}
               onClearTagSelection={() => setSelectedTags([])}
             />
 
-            <Card className="rounded-[24px] border-0 bg-white/92 shadow-sm backdrop-blur">
+            <Card className="rounded-[24px] border border-slate-200/80 bg-white/92 shadow-sm backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/88">
               <CardHeader className="pb-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-lg">
-                    {"\u8868\u683c\u603b\u89c8"}
+                    {t("page.tableOverview")}
                   </CardTitle>
-                  <div className="text-sm text-slate-500">
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
                     {activeFilterCount > 0
-                      ? `\u5f53\u524d\u547d\u4e2d ${filteredRows.length} \u6761\u7ed3\u679c`
-                      : "\u70b9\u51fb\u4efb\u610f\u6761\u76ee\u53ef\u5728\u53f3\u4fa7\u5c55\u5f00\u5b8c\u6574\u8bb0\u5f55"}
+                      ? t("page.filteredResultCount", { count: filteredRows.length })
+                      : t("page.drawerHint")}
                   </div>
                 </div>
               </CardHeader>
@@ -1005,16 +974,16 @@ export default function PersonalKnowledgeSiteUIMockup() {
                         onClick={() => setSelectedItem(item)}
                         className={`w-full rounded-[22px] border p-4 text-left transition ${
                           isHighlighted
-                            ? "border-amber-200 bg-amber-50/80 ring-1 ring-inset ring-amber-200"
-                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                            ? "border-amber-200 bg-amber-50/80 ring-1 ring-inset ring-amber-200 dark:border-amber-500/50 dark:bg-amber-500/10 dark:ring-amber-500/50"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700 dark:hover:bg-slate-900/80"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-base font-medium text-slate-900">
+                            <div className="text-base font-medium text-slate-900 dark:text-slate-100">
                               {item.name}
                             </div>
-                            <div className="mt-1 text-xs text-slate-400">
+                            <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                               {`\u65b0\u589e ${item.createdAt} \u00b7 \u66f4\u65b0 ${item.updatedAt}`}
                             </div>
                           </div>
@@ -1026,22 +995,22 @@ export default function PersonalKnowledgeSiteUIMockup() {
                           </Badge>
                         </div>
 
-                        <div className="mt-3 grid gap-3 text-sm text-slate-500 sm:grid-cols-2">
+                        <div className="mt-3 grid gap-3 text-sm text-slate-500 dark:text-slate-400 sm:grid-cols-2">
                           <div>
-                            <div className="text-[11px] uppercase tracking-[0.14em] text-slate-400">
+                            <div className="text-[11px] uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
                               {"\u5206\u7c7b"}
                             </div>
                             <div className="mt-1 break-words">{item.category}</div>
                           </div>
                           <div>
-                            <div className="text-[11px] uppercase tracking-[0.14em] text-slate-400">
-                              {currentModule.tableHeaders[2]}
+                            <div className="text-[11px] uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                              {translatedHeaders[2]}
                             </div>
                             <div className="mt-1 break-words">{getPrimaryMeta(item)}</div>
                           </div>
                           <div>
-                            <div className="text-[11px] uppercase tracking-[0.14em] text-slate-400">
-                              {currentModule.tableHeaders[3]}
+                            <div className="text-[11px] uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                              {translatedHeaders[3]}
                             </div>
                             <div className="mt-1 break-words">{getSecondaryMeta(item)}</div>
                           </div>
@@ -1052,7 +1021,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                             <Badge
                               key={`${item.id}-mobile-${tag}`}
                               variant="secondary"
-                              className="whitespace-normal rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600"
+                              className="whitespace-normal rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                             >
                               #{tag}
                             </Badge>
@@ -1060,7 +1029,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                         </div>
 
                         {isAdmin && (
-                          <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                          <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1095,17 +1064,17 @@ export default function PersonalKnowledgeSiteUIMockup() {
                   })}
                 </div>
 
-                <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 md:block">
+                <div className="scrollbar-none hidden overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 md:block">
                   <div className="min-w-[980px]">
-                    <div className={`${tableGridClassName} bg-slate-50 px-4 py-3 text-sm font-medium text-slate-500`}>
-                      {currentModule.tableHeaders.map((header) => (
+                    <div className={`${tableGridClassName} bg-slate-50 px-4 py-3 text-sm font-medium text-slate-500 dark:bg-slate-900 dark:text-slate-400`}>
+                      {translatedHeaders.map((header) => (
                         <div key={header} className="whitespace-normal break-words">
                           {header}
                         </div>
                       ))}
                     </div>
 
-                    <div className="divide-y divide-slate-100 bg-white">
+                    <div className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-950">
                       {filteredRows.map((item) => {
                         const isHighlighted = highlightedEntryId === item.id;
 
@@ -1123,13 +1092,13 @@ export default function PersonalKnowledgeSiteUIMockup() {
                             }}
                             className={`${tableGridClassName} cursor-pointer items-start px-4 py-3.5 text-left transition ${
                               isHighlighted
-                                ? "bg-amber-50/80 ring-1 ring-inset ring-amber-200"
-                                : "hover:bg-slate-50"
+                                ? "bg-amber-50/80 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/50"
+                                : "hover:bg-slate-50 dark:hover:bg-slate-900/80"
                             }`}
                           >
                             <div className="min-w-0">
                               <div className="flex items-start justify-between gap-2">
-                                <div className="whitespace-normal break-words font-medium text-slate-800">
+                                <div className="whitespace-normal break-words font-medium text-slate-800 dark:text-slate-100">
                                   {item.name}
                                 </div>
                                 {isAdmin && (
@@ -1164,20 +1133,20 @@ export default function PersonalKnowledgeSiteUIMockup() {
                                   </div>
                                 )}
                               </div>
-                              <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                              <div className="mt-1 flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
                                 <span>{`\u65b0\u589e\u4e8e ${item.createdAt}`}</span>
                                 {isAdmin && (
                                   <span>{`\u66f4\u65b0 ${item.updatedAt}`}</span>
                                 )}
                               </div>
                             </div>
-                            <div className="whitespace-normal break-words text-sm text-slate-500">
+                            <div className="whitespace-normal break-words text-sm text-slate-500 dark:text-slate-400">
                               {item.category}
                             </div>
-                            <div className="whitespace-normal break-words text-sm text-slate-500">
+                            <div className="whitespace-normal break-words text-sm text-slate-500 dark:text-slate-400">
                               {getPrimaryMeta(item)}
                             </div>
-                            <div className="whitespace-normal break-words text-sm text-slate-500">
+                            <div className="whitespace-normal break-words text-sm text-slate-500 dark:text-slate-400">
                               {getSecondaryMeta(item)}
                             </div>
                             <div className="pt-0.5">
@@ -1200,7 +1169,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                                 >
                                   <Badge
                                     variant="secondary"
-                                    className="whitespace-normal rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600"
+                                    className="whitespace-normal rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                                   >
                                     #{tag}
                                   </Badge>
@@ -1216,7 +1185,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                 </div>
 
                 {filteredRows.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-12 text-center">
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-12 text-center dark:border-slate-800 dark:bg-slate-900/60">
                     <div className="mx-auto max-w-md text-sm leading-6 text-slate-500">
                       {emptyStateText}
                     </div>
@@ -1248,7 +1217,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
       <CategoryManagerDialog
         open={isCategoryManagerOpen}
         onOpenChange={setIsCategoryManagerOpen}
-        moduleLabel={currentModule.label}
+        moduleLabel={translatedCurrentModuleLabel}
         categories={manageableCategories}
         counts={categoryUsageCounts}
         onCreateCategory={handleCreateCategory}
@@ -1269,7 +1238,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
         onOpenChange={setIsDataSyncOpen}
         moduleOptions={moduleList.map((module) => ({
           id: module.id,
-          label: module.label,
+          label: moduleLabel(module.id),
           count: knowledgeData[module.id].length,
         }))}
         webdavSettings={webdavSettings}
@@ -1340,3 +1309,19 @@ export default function PersonalKnowledgeSiteUIMockup() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
