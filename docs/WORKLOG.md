@@ -13,6 +13,19 @@
 验证：
 - `npm run build` 通过。
 
+## 2026-04-01 GitHub Pages 接入
+
+目标：
+- 将项目以 GitHub Pages 项目站点方式部署到 `https://qinmomeak.github.io/Momeak-Archive/`。
+
+主要改动：
+- 为 Vite 增加项目站点 `base` 配置 `/Momeak-Archive/`。
+- 新增 GitHub Actions 部署工作流，自动完成 checkout、Node 安装、`npm ci`、`npm run build`、上传 `dist` 并部署到 Pages。
+- 保持本地开发命令不变，`npm run dev` 和 `npm run build` 继续可用。
+
+验证：
+- `npm run build` 通过。
+
 ## 2026-04-01 移除左下角访问模式说明卡
 
 目标：
