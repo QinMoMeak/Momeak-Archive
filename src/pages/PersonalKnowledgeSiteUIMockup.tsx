@@ -26,7 +26,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { initialKnowledgeData, moduleDefinitions, moduleList } from "@/data/knowledge";
 import {
   applyKnowledgeImportZip,
+  downloadImportTemplateZip,
   exportKnowledgeZip,
+  fetchImportAiPrompt,
   fetchWebdavBackups,
   fetchWebdavSettings,
   resetWebdavSettings,
@@ -81,6 +83,7 @@ import type {
   SaveAiSettingsPayload,
 } from "@/types/ai-settings";
 import type {
+  ImportTemplateKind,
   SaveWebdavSettingsPayload,
   WebdavSettingsView,
   RemoteBackupFile,
@@ -617,6 +620,23 @@ export default function PersonalKnowledgeSiteUIMockup() {
         moduleEntryCounts,
       )} 条记录。`,
     );
+  }
+
+  async function handleDownloadTemplate(
+    modules: ModuleId[],
+    kind: ImportTemplateKind,
+  ) {
+    const exported = await downloadImportTemplateZip(modules, kind);
+    triggerBlobDownload(exported.blob, exported.fileName);
+    setActionNotice(
+      kind === "empty"
+        ? `已下载空模板，覆盖 ${modules.length} 个模块。`
+        : `已下载示例模板，覆盖 ${modules.length} 个模块。`,
+    );
+  }
+
+  async function handleGenerateImportPrompt(modules: ModuleId[]) {
+    return fetchImportAiPrompt(modules);
   }
 
   async function handleInspectImport(file: File, selectedModules: ModuleId[] = []) {
@@ -1255,6 +1275,8 @@ export default function PersonalKnowledgeSiteUIMockup() {
         webdavSettings={webdavSettings}
         webdavBackups={webdavBackups}
         onExport={handleExportKnowledge}
+        onDownloadTemplate={handleDownloadTemplate}
+        onGenerateAiPrompt={handleGenerateImportPrompt}
         onInspectImport={handleInspectImport}
         onApplyImport={handleApplyImport}
         onSaveWebdavSettings={handleSaveWebdavSettings}

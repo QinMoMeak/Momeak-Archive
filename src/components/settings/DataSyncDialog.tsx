@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Bot,
   CloudUpload,
+  Copy,
   Download,
+  FileArchive,
   HardDriveUpload,
   RefreshCcw,
   RotateCcw,
@@ -19,7 +22,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import type {
+  ImportAiPromptResponse,
   ImportInspectionResponse,
+  ImportTemplateKind,
   RemoteBackupFile,
   SaveWebdavSettingsPayload,
   WebdavSettingsView,
@@ -39,6 +44,11 @@ type DataSyncDialogProps = {
   webdavSettings: WebdavSettingsView | null;
   webdavBackups: RemoteBackupFile[];
   onExport: (modules: ModuleId[]) => Promise<void>;
+  onDownloadTemplate: (
+    modules: ModuleId[],
+    kind: ImportTemplateKind,
+  ) => Promise<void>;
+  onGenerateAiPrompt: (modules: ModuleId[]) => Promise<ImportAiPromptResponse>;
   onInspectImport: (
     file: File,
     selectedModules?: ModuleId[],
@@ -74,7 +84,7 @@ function SelectionList({
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-medium text-slate-900">导出模块</div>
+          <div className="text-sm font-medium text-slate-900">模块选择</div>
           <div className="mt-1 text-xs text-slate-500">
             已选 {selectedModules.length} 个模块，共 {totalEntries} 条记录
           </div>
@@ -129,6 +139,8 @@ export function DataSyncDialog({
   webdavSettings,
   webdavBackups,
   onExport,
+  onDownloadTemplate,
+  onGenerateAiPrompt,
   onInspectImport,
   onApplyImport,
   onSaveWebdavSettings,
@@ -144,8 +156,14 @@ export function DataSyncDialog({
   const [selectedModules, setSelectedModules] = useState<ModuleId[]>(allModules);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [inspection, setInspection] = useState<ImportInspectionResponse | null>(null);
+  const [promptData, setPromptData] = useState<ImportAiPromptResponse | null>(null);
   const [error, setError] = useState("");
+  const [copyNotice, setCopyNotice] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState<ImportTemplateKind | "">(
+    "",
+  );
+  const [isPromptLoading, setIsPromptLoading] = useState(false);
   const [isInspecting, setIsInspecting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isSavingWebdav, setIsSavingWebdav] = useState(false);
@@ -169,6 +187,8 @@ export function DataSyncDialog({
     setSelectedModules(allModules);
     setImportFile(null);
     setInspection(null);
+    setPromptData(null);
+    setCopyNotice("");
     setError("");
     setRestoringFile("");
     setWebdavForm({
@@ -209,6 +229,62 @@ export function DataSyncDialog({
     }
   }
 
+  async function handleDownloadTemplate(kind: ImportTemplateKind) {
+    if (selectedModules.length === 0) {
+      setError("请先选择至少一个模块后再下载模板。");
+      return;
+    }
+
+    try {
+      setError("");
+      setIsDownloadingTemplate(kind);
+      await onDownloadTemplate(selectedModules, kind);
+    } catch (templateError) {
+      setError(
+        templateError instanceof Error
+          ? templateError.message
+          : "模板下载失败，请稍后重试。",
+      );
+    } finally {
+      setIsDownloadingTemplate("");
+    }
+  }
+
+  async function handleGeneratePrompt() {
+    if (selectedModules.length === 0) {
+      setError("请先选择至少一个模块后再生成 AI 转换指引。");
+      return;
+    }
+
+    try {
+      setError("");
+      setCopyNotice("");
+      setIsPromptLoading(true);
+      setPromptData(await onGenerateAiPrompt(selectedModules));
+    } catch (promptError) {
+      setError(
+        promptError instanceof Error
+          ? promptError.message
+          : "生成 AI 转换指引失败。",
+      );
+    } finally {
+      setIsPromptLoading(false);
+    }
+  }
+
+  async function handleCopyPrompt() {
+    if (!promptData?.prompt) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(promptData.prompt);
+      setCopyNotice("AI Prompt 已复制。");
+    } catch {
+      setCopyNotice("复制失败，请手动选择文本复制。");
+    }
+  }
+
   async function handleInspectImport() {
     if (!importFile) {
       setError("请先选择一个 ZIP 文件。");
@@ -238,7 +314,7 @@ export function DataSyncDialog({
     }
 
     if (!inspection) {
-      setError("请先执行导入预校验。");
+      setError("请先执行 ZIP 预校验。");
       return;
     }
 
@@ -398,6 +474,83 @@ export function DataSyncDialog({
                 {isExporting ? "正在导出..." : "导出 ZIP"}
               </Button>
             </div>
+          </section>
+
+          <section className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50/70 p-5">
+            <div>
+              <div className="text-base font-semibold text-slate-900">导入辅助</div>
+              <div className="mt-1 text-sm text-slate-500">
+                先下载模板，再结合原始表格和 AI Prompt 生成符合要求的 ZIP，会比手工猜格式更稳。
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <Button
+                variant="outline"
+                onClick={() => void handleDownloadTemplate("empty")}
+                disabled={isDownloadingTemplate === "empty"}
+              >
+                <FileArchive className="mr-2 h-4 w-4" />
+                {isDownloadingTemplate === "empty" ? "正在生成..." : "下载空模板"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void handleDownloadTemplate("example")}
+                disabled={isDownloadingTemplate === "example"}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {isDownloadingTemplate === "example" ? "正在生成..." : "下载示例模板"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void handleGeneratePrompt()}
+                disabled={isPromptLoading}
+              >
+                <Bot className="mr-2 h-4 w-4" />
+                {isPromptLoading ? "正在生成..." : "查看 AI 转换指引"}
+              </Button>
+            </div>
+
+            {promptData && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-slate-900">
+                      AI 导入 Prompt
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      适用于 {promptData.selectedModules.join("、")} 模块，可直接复制给外部 AI 或后续转换流程。
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => void handleCopyPrompt()}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    复制 Prompt
+                  </Button>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                  {promptData.selectedModules.map((moduleId) => (
+                    <Badge
+                      key={moduleId}
+                      variant="secondary"
+                      className="rounded-full px-3 py-1"
+                    >
+                      {moduleId} 分类 {promptData.categoriesByModule[moduleId]?.length ?? 0} 项
+                    </Badge>
+                  ))}
+                </div>
+
+                <textarea
+                  readOnly
+                  value={promptData.prompt}
+                  className="mt-4 min-h-[280px] w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700 outline-none"
+                />
+
+                {copyNotice && (
+                  <div className="mt-3 text-xs text-emerald-600">{copyNotice}</div>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50/70 p-5">

@@ -1,7 +1,9 @@
 import type { ModuleId } from "@/types/knowledge";
 import type {
   ApplyImportResponse,
+  ImportAiPromptResponse,
   ImportInspectionResponse,
+  ImportTemplateKind,
   SaveWebdavSettingsPayload,
   WebdavBackupListResponse,
   WebdavSettingsView,
@@ -45,11 +47,47 @@ export async function exportKnowledgeZip(modules: ModuleId[]) {
   };
 }
 
-async function postZip(
-  path: string,
-  file: File,
-  selectedModules: ModuleId[] = [],
+export async function downloadImportTemplateZip(
+  modules: ModuleId[],
+  kind: ImportTemplateKind,
 ) {
+  const response = await fetch(`${dataSyncApiBase}/templates/${kind}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ modules }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return {
+    blob: await response.blob(),
+    fileName: parseFileName(response, `knowledge-template-${kind}.zip`),
+  };
+}
+
+export async function fetchImportAiPrompt(modules: ModuleId[]) {
+  const response = await fetch(`${dataSyncApiBase}/templates/prompt`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ modules }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return (await response.json()) as ImportAiPromptResponse;
+}
+
+async function postZip(path: string, file: File, selectedModules: ModuleId[] = []) {
   const response = await fetch(`${dataSyncApiBase}${path}`, {
     method: "POST",
     credentials: "same-origin",

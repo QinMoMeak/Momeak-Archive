@@ -1,5 +1,7 @@
 import type { KnowledgeData, KnowledgeMeta, ModuleId } from "@/types/knowledge";
 
+export type ImportTemplateKind = "empty" | "example";
+
 export type ExportManifest = {
   schemaVersion: number;
   exportTime: string;
@@ -97,4 +99,11 @@ export type WebdavUploadResponse = {
   remoteFile: string;
   remoteUrl: string;
   manifest: ExportManifest;
+};
+
+export type ImportAiPromptResponse = {
+  prompt: string;
+  selectedModules: ModuleId[];
+  categoriesByModule: Record<string, string[]>;
+  statusesByModule: Record<string, string[]>;
 };

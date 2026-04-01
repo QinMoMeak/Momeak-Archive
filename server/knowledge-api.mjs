@@ -14,6 +14,9 @@ import {
 } from "./knowledge-store.mjs";
 import { parseKnowledgeEntryWithAi } from "./ai/parse-entry.mjs";
 import { createKnowledgeExport } from "./import-export/create-knowledge-export.mjs";
+import { createImportTemplate } from "./import-export/create-import-template.mjs";
+import { createExampleTemplate } from "./import-export/create-example-template.mjs";
+import { generateImportAiPrompt } from "./import-export/generate-import-ai-prompt.mjs";
 import { validateImportPackage } from "./import-export/validate-import-package.mjs";
 import { applyKnowledgeImport } from "./import-export/apply-knowledge-import.mjs";
 import {
@@ -293,6 +296,32 @@ const server = http.createServer(async (request, response) => {
       const body = JSON.parse(rawBody || "{}");
       const exported = await createKnowledgeExport(body.modules ?? []);
       sendBinary(response, 200, exported.buffer, exported.fileName);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/data-sync/templates/empty") {
+      requireAdmin(request);
+      const rawBody = await readBody(request);
+      const body = JSON.parse(rawBody || "{}");
+      const exported = await createImportTemplate(body.modules ?? []);
+      sendBinary(response, 200, exported.buffer, exported.fileName);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/data-sync/templates/example") {
+      requireAdmin(request);
+      const rawBody = await readBody(request);
+      const body = JSON.parse(rawBody || "{}");
+      const exported = await createExampleTemplate(body.modules ?? []);
+      sendBinary(response, 200, exported.buffer, exported.fileName);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/data-sync/templates/prompt") {
+      requireAdmin(request);
+      const rawBody = await readBody(request);
+      const body = JSON.parse(rawBody || "{}");
+      sendJson(response, 200, await generateImportAiPrompt(body.modules ?? []));
       return;
     }
 

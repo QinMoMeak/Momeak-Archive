@@ -41,6 +41,7 @@ export function buildModuleStats(entriesByModule) {
 export async function createExportManifest({
   exportedModules,
   entriesByModule,
+  manifestExtras = {},
 }) {
   const moduleStats = buildModuleStats(entriesByModule);
   const totalEntries = Object.values(moduleStats).reduce(
@@ -58,6 +59,7 @@ export async function createExportManifest({
     moduleStats,
     sourceAppVersion: await getPackageVersion(),
     isFullExport: isFull,
+    ...manifestExtras,
   };
 }
 

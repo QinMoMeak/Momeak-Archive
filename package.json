@@ -8,6 +8,7 @@
     "dev:vite": "vite",
     "dev:server": "node server/knowledge-api.mjs",
     "build": "tsc -b && vite build",
+    "docs:generate": "node scripts/generate-work-doc.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
