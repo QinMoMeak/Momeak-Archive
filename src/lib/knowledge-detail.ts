@@ -8,11 +8,11 @@ const markdownModules = import.meta.glob("../../content/**/*.md", {
   eager: true,
 }) as Record<string, string>;
 
-function getMarkdownPath(entry: KnowledgeEntry) {
+export function getMarkdownPath(entry: KnowledgeEntry) {
   return `../../content/${entry.module}/${entry.id}.md`;
 }
 
-function getMarkdownContent(entry: KnowledgeEntry) {
+export function getBundledMarkdownContent(entry: KnowledgeEntry) {
   return markdownModules[getMarkdownPath(entry)]?.trim() ?? "";
 }
 
@@ -122,8 +122,11 @@ function getSourceAndTime(entry: KnowledgeEntry, hasMarkdown: boolean): DetailFi
   ];
 }
 
-export function resolveEntryDetail(entry: KnowledgeEntry) {
-  const markdown = getMarkdownContent(entry);
+export function resolveEntryDetail(
+  entry: KnowledgeEntry,
+  markdownOverride?: string | null,
+) {
+  const markdown = markdownOverride ?? getBundledMarkdownContent(entry);
   const hasMarkdown = markdown.length > 0;
   const definition = moduleDefinitions[entry.module];
 

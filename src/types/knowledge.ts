@@ -56,6 +56,10 @@ export type KnowledgeData = {
   websites: WebsiteEntry[];
 };
 
+export type KnowledgeMeta = {
+  categories: Record<ModuleId, string[]>;
+};
+
 export type ModuleDefinition = {
   id: ModuleId;
   label: string;
@@ -80,6 +84,7 @@ export type QuickAddDraft = {
   status: string;
   tags: string;
   note: string;
+  markdownContent: string;
   source: string;
   location: string;
   rating: string;
@@ -89,4 +94,61 @@ export type QuickAddDraft = {
   access: string;
   content: string;
   purpose: string;
+};
+
+export type CreateKnowledgeEntryPayload = {
+  moduleId: ModuleId;
+  draft: QuickAddDraft;
+};
+
+export type SaveKnowledgeEntryResponse = {
+  entry: KnowledgeEntry;
+  data: KnowledgeData;
+  markdownPath: string | null;
+};
+
+export type LoadKnowledgeDataResponse = {
+  data: KnowledgeData;
+};
+
+export type LoadKnowledgeMetaResponse = {
+  meta: KnowledgeMeta;
+};
+
+export type UpdateKnowledgeEntryPayload = {
+  moduleId: ModuleId;
+  entryId: string;
+  draft: QuickAddDraft;
+};
+
+export type DeleteKnowledgeEntryResponse = {
+  data: KnowledgeData;
+  deletedEntryId: string;
+};
+
+export type AuthSessionResponse = {
+  isAdmin: boolean;
+  isPasswordConfigured: boolean;
+};
+
+export type CreateCategoryPayload = {
+  moduleId: ModuleId;
+  name: string;
+};
+
+export type RenameCategoryPayload = {
+  moduleId: ModuleId;
+  oldName: string;
+  newName: string;
+};
+
+export type DeleteCategoryPayload = {
+  moduleId: ModuleId;
+  name: string;
+  replacementName?: string;
+};
+
+export type CategoryMutationResponse = {
+  data: KnowledgeData;
+  meta: KnowledgeMeta;
 };

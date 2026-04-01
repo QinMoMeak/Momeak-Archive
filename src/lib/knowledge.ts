@@ -1,3 +1,4 @@
+import type { AiSuggestionResult } from "@/types/ai";
 import { moduleDefinitions } from "@/data/knowledge";
 import type {
   KnowledgeEntry,
@@ -197,49 +198,33 @@ export function getNowDateString() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function createEntryFromDraft(
-  moduleId: ModuleId,
-  draft: QuickAddDraft,
-): KnowledgeEntry {
-  const date = getNowDateString();
-  const baseEntry = {
-    id: `${moduleId}-${Date.now()}`,
-    module: moduleId,
-    name: draft.name.trim(),
-    category: draft.category.trim(),
-    status: draft.status.trim(),
-    tags: parseTagsInput(draft.tags),
-    note: draft.note.trim(),
-    source: draft.source.trim() || "\u5feb\u901f\u65b0\u589e",
-    createdAt: date,
-    updatedAt: date,
+export function createDraftFromEntry(
+  entry: KnowledgeEntry,
+  markdownContent = "",
+): QuickAddDraft {
+  return {
+    name: entry.name,
+    category: entry.category,
+    status: entry.status,
+    tags: entry.tags.join(", "),
+    note: entry.note,
+    markdownContent,
+    source: entry.source,
+    location: entry.module === "offline" ? entry.location : "",
+    rating:
+      entry.module === "offline" && entry.rating !== null
+        ? String(entry.rating)
+        : "",
+    platform: entry.module === "shopping" ? entry.platform : "",
+    price:
+      entry.module === "shopping" && entry.price !== null
+        ? String(entry.price)
+        : "",
+    domain: entry.module === "websites" ? entry.domain : "",
+    access: entry.module === "websites" ? entry.access : "\u53ef\u8bbf\u95ee",
+    content: entry.module === "websites" ? entry.content : "",
+    purpose: entry.module === "websites" ? entry.purpose : "",
   };
-
-  switch (moduleId) {
-    case "offline":
-      return {
-        ...baseEntry,
-        module: "offline",
-        location: draft.location.trim(),
-        rating: draft.rating.trim() ? Number(draft.rating) : null,
-      };
-    case "shopping":
-      return {
-        ...baseEntry,
-        module: "shopping",
-        platform: draft.platform.trim(),
-        price: draft.price.trim() ? Number(draft.price) : null,
-      };
-    case "websites":
-      return {
-        ...baseEntry,
-        module: "websites",
-        domain: draft.domain.trim(),
-        access: draft.access.trim(),
-        content: draft.content.trim(),
-        purpose: draft.purpose.trim(),
-      };
-  }
 }
 
 export function getEmptyDraft(moduleId: ModuleId): QuickAddDraft {
@@ -251,6 +236,7 @@ export function getEmptyDraft(moduleId: ModuleId): QuickAddDraft {
     status: definition.defaultStatuses[0] ?? "",
     tags: "",
     note: "",
+    markdownContent: "",
     source: "",
     location: "",
     rating: "",
@@ -261,4 +247,33 @@ export function getEmptyDraft(moduleId: ModuleId): QuickAddDraft {
     content: "",
     purpose: "",
   };
+}
+
+function hasDraftValue(value: string) {
+  return value.trim().length > 0;
+}
+
+export function mergeDraftWithAiResult(
+  current: QuickAddDraft,
+  result: AiSuggestionResult,
+): QuickAddDraft {
+  const nextDraft: QuickAddDraft = { ...current };
+  const nextTags = result.draft.tags
+    ? getUniqueValues([...parseTagsInput(current.tags), ...parseTagsInput(result.draft.tags)])
+    : parseTagsInput(current.tags);
+
+  for (const [key, rawValue] of Object.entries(result.draft) as Array<
+    [keyof QuickAddDraft, string]
+  >) {
+    if (key === "tags") {
+      continue;
+    }
+
+    if (hasDraftValue(rawValue)) {
+      nextDraft[key] = rawValue;
+    }
+  }
+
+  nextDraft.tags = nextTags.join(", ");
+  return nextDraft;
 }

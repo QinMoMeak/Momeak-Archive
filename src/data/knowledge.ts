@@ -1,6 +1,7 @@
-import offlineData from "@/data/offline.json";
-import shoppingData from "@/data/shopping.json";
-import websitesData from "@/data/websites.json";
+import offlineData from "../../data/offline.json";
+import shoppingData from "../../data/shopping.json";
+import taxonomyData from "../../data/taxonomy.json";
+import websitesData from "../../data/websites.json";
 import type {
   KnowledgeData,
   ModuleDefinition,
@@ -29,13 +30,7 @@ export const moduleDefinitions: Record<ModuleId, ModuleDefinition> = {
     ],
     primaryFieldLabel: "\u5730\u70b9",
     secondaryFieldLabel: "\u8bc4\u5206",
-    defaultCategories: [
-      "\u996d\u5e97",
-      "\u4f4f\u5bbf",
-      "\u666f\u70b9",
-      "\u8336\u9986",
-      "\u5496\u5561\u9986",
-    ],
+    defaultCategories: taxonomyData.categories.offline,
     defaultStatuses: [
       "\u60f3\u53bb",
       "\u5e38\u53bb",
@@ -61,13 +56,7 @@ export const moduleDefinitions: Record<ModuleId, ModuleDefinition> = {
     ],
     primaryFieldLabel: "\u5e73\u53f0",
     secondaryFieldLabel: "\u4ef7\u683c",
-    defaultCategories: [
-      "\u96f6\u98df",
-      "\u6570\u7801",
-      "\u65e5\u7528\u767e\u8d27",
-      "\u670d\u9970",
-      "\u836f\u54c1",
-    ],
+    defaultCategories: taxonomyData.categories.shopping,
     defaultStatuses: [
       "\u56de\u8d2d",
       "\u63a8\u8350",
@@ -93,12 +82,7 @@ export const moduleDefinitions: Record<ModuleId, ModuleDefinition> = {
     ],
     primaryFieldLabel: "\u57df\u540d",
     secondaryFieldLabel: "\u53ef\u8bbf\u95ee",
-    defaultCategories: [
-      "\u6587\u4ef6\u5de5\u5177",
-      "AI \u5de5\u5177",
-      "\u8d44\u6e90\u7f51\u7ad9",
-      "\u5f00\u53d1\u53c2\u8003",
-    ],
+    defaultCategories: taxonomyData.categories.websites,
     defaultStatuses: [
       "\u5e38\u7528",
       "\u63a8\u8350",

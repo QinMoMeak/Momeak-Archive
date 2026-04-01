@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { AiAssistPanel } from "@/components/knowledge/AiAssistPanel";
+import { Badge } from "@/components/ui/badge";
 import { moduleDefinitions } from "@/data/knowledge";
-import { createEntryFromDraft, getEmptyDraft } from "@/lib/knowledge";
+import {
+  getEmptyDraft,
+  getUniqueValues,
+  mergeDraftWithAiResult,
+} from "@/lib/knowledge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,7 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { KnowledgeEntry, ModuleId, QuickAddDraft } from "@/types/knowledge";
+import type { AiSuggestionResult } from "@/types/ai";
+import type { ModuleId, QuickAddDraft } from "@/types/knowledge";
 
 type QuickAddEntryDialogProps = {
   moduleId: ModuleId;
@@ -20,7 +27,13 @@ type QuickAddEntryDialogProps = {
   onOpenChange: (open: boolean) => void;
   categoryOptions: string[];
   statusOptions: string[];
-  onSubmit: (entry: KnowledgeEntry) => void;
+  initialDraft?: QuickAddDraft | null;
+  title?: string;
+  description?: string;
+  submitLabel?: string;
+  onAiParse: (rawText: string) => Promise<AiSuggestionResult>;
+  onCreateCategory?: (name: string) => Promise<void> | void;
+  onSubmit: (draft: QuickAddDraft) => Promise<void> | void;
 };
 
 const selectClassName =
@@ -32,11 +45,22 @@ export function QuickAddEntryDialog({
   onOpenChange,
   categoryOptions,
   statusOptions,
+  initialDraft,
+  title,
+  description,
+  submitLabel,
+  onAiParse,
+  onCreateCategory,
   onSubmit,
 }: QuickAddEntryDialogProps) {
   const definition = moduleDefinitions[moduleId];
   const [draft, setDraft] = useState<QuickAddDraft>(getEmptyDraft(moduleId));
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [aiRawText, setAiRawText] = useState("");
+  const [aiError, setAiError] = useState("");
+  const [isAiParsing, setIsAiParsing] = useState(false);
+  const [aiResult, setAiResult] = useState<AiSuggestionResult | null>(null);
 
   const availableCategories = useMemo(
     () => Array.from(new Set([...definition.defaultCategories, ...categoryOptions])),
@@ -53,13 +77,21 @@ export function QuickAddEntryDialog({
       return;
     }
 
-    const emptyDraft = getEmptyDraft(moduleId);
-    emptyDraft.category = availableCategories[0] ?? "";
-    emptyDraft.status = availableStatuses[0] ?? "";
-
-    setDraft(emptyDraft);
+    if (initialDraft) {
+      setDraft(initialDraft);
+    } else {
+      const emptyDraft = getEmptyDraft(moduleId);
+      emptyDraft.category = availableCategories[0] ?? "";
+      emptyDraft.status = availableStatuses[0] ?? "";
+      setDraft(emptyDraft);
+    }
     setError("");
-  }, [availableCategories, availableStatuses, moduleId, open]);
+    setAiError("");
+    setIsSubmitting(false);
+    setIsAiParsing(false);
+    setAiResult(null);
+    setAiRawText("");
+  }, [availableCategories, availableStatuses, initialDraft, moduleId, open]);
 
   function updateDraft<K extends keyof QuickAddDraft>(
     key: K,
@@ -69,9 +101,111 @@ export function QuickAddEntryDialog({
       ...current,
       [key]: value,
     }));
+
+    if (key === "category") {
+      setAiResult((current) =>
+        current
+          ? {
+              ...current,
+              category: String(value),
+              unmatchedCategory: "",
+              needsCategoryConfirmation: false,
+            }
+          : current,
+      );
+    }
+
+    if (key === "status") {
+      setAiResult((current) =>
+        current
+          ? {
+              ...current,
+              status: String(value),
+              unmatchedStatus: "",
+              needsStatusConfirmation: false,
+            }
+          : current,
+      );
+    }
   }
 
-  function handleSubmit() {
+  async function handleAiParse() {
+    if (!aiRawText.trim()) {
+      setAiError("请先输入一段原始文本，再开始 AI 解析。");
+      return;
+    }
+
+    try {
+      setAiError("");
+      setIsAiParsing(true);
+      const result = await onAiParse(aiRawText);
+      setAiResult(result);
+      setDraft((current) => mergeDraftWithAiResult(current, result));
+    } catch (parseError) {
+      setAiError(
+        parseError instanceof Error
+          ? parseError.message
+          : "AI 解析失败，请稍后重试或继续手动录入。",
+      );
+    } finally {
+      setIsAiParsing(false);
+    }
+  }
+
+  async function handleCreateSuggestedCategory(name: string) {
+    if (!onCreateCategory) {
+      return;
+    }
+
+    try {
+      setAiError("");
+      await onCreateCategory(name);
+      updateDraft("category", name);
+      setAiResult((current) =>
+        current
+          ? {
+              ...current,
+              category: name,
+              unmatchedCategory: "",
+              needsCategoryConfirmation: false,
+              availableCategories: getUniqueValues([
+                ...current.availableCategories,
+                name,
+              ]),
+              filledFields: current.filledFields.includes("category")
+                ? current.filledFields
+                : [...current.filledFields, "category"],
+            }
+          : current,
+      );
+    } catch (createError) {
+      setAiError(
+        createError instanceof Error
+          ? createError.message
+          : "新增分类失败，请稍后重试。",
+      );
+    }
+  }
+
+  const aiFilledFields = useMemo(
+    () => new Set(aiResult?.filledFields ?? []),
+    [aiResult],
+  );
+
+  function renderFieldLabel(label: string, field: keyof QuickAddDraft) {
+    return (
+      <div className="flex items-center gap-2">
+        <span>{label}</span>
+        {aiFilledFields.has(field) && (
+          <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px]">
+            AI 已填充
+          </Badge>
+        )}
+      </div>
+    );
+  }
+
+  async function handleSubmit() {
     if (!draft.name.trim()) {
       setError("\u540d\u79f0\u4e0d\u80fd\u4e3a\u7a7a\u3002");
       return;
@@ -92,18 +226,25 @@ export function QuickAddEntryDialog({
       return;
     }
 
-    if (moduleId === "shopping" && !draft.platform.trim()) {
-      setError("\u7f51\u8d2d\u597d\u7269\u81f3\u5c11\u9700\u8981\u586b\u5199\u5e73\u53f0\u3002");
-      return;
-    }
-
     if (moduleId === "websites" && !draft.domain.trim()) {
       setError("\u7f51\u7ad9\u6536\u96c6\u81f3\u5c11\u9700\u8981\u586b\u5199\u57df\u540d\u3002");
       return;
     }
 
-    onSubmit(createEntryFromDraft(moduleId, draft));
-    onOpenChange(false);
+    try {
+      setError("");
+      setIsSubmitting(true);
+      await onSubmit(draft);
+      onOpenChange(false);
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "\u5199\u5165\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -112,19 +253,35 @@ export function QuickAddEntryDialog({
         <div className="border-b border-slate-100 bg-slate-900 px-6 py-5 text-white">
           <DialogHeader>
             <DialogTitle className="text-xl">
-              {"\u5feb\u901f\u65b0\u589e\u6761\u76ee"}
+              {title ?? "\u5feb\u901f\u65b0\u589e\u6761\u76ee"}
             </DialogTitle>
             <DialogDescription className="mt-2 text-slate-300">
-              {`\u5f53\u524d\u6a21\u5757\uff1a${definition.label}\u3002\u53ea\u586b\u5fc5\u8981\u5b57\u6bb5\u5373\u53ef\u52a0\u5165\u5217\u8868\uff0c\u5176\u4ed6\u5185\u5bb9\u540e\u7eed\u518d\u8865\u3002`}
+              {description ??
+                `\u5f53\u524d\u6a21\u5757\uff1a${definition.label}\u3002\u53ea\u586b\u5fc5\u8981\u5b57\u6bb5\u5373\u53ef\u52a0\u5165\u5217\u8868\uff0c\u5176\u4ed6\u5185\u5bb9\u540e\u7eed\u518d\u8865\u3002`}
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <div className="space-y-5 p-6">
+        <div className="max-h-[80dvh] space-y-5 overflow-y-auto p-6">
+          <AiAssistPanel
+            moduleId={moduleId}
+            rawText={aiRawText}
+            onRawTextChange={setAiRawText}
+            onParse={() => void handleAiParse()}
+            isParsing={isAiParsing}
+            error={aiError}
+            result={aiResult}
+            onCreateSuggestedCategory={
+              onCreateCategory
+                ? (name) => handleCreateSuggestedCategory(name)
+                : undefined
+            }
+          />
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">
-                {"\u540d\u79f0"}
+                {renderFieldLabel("名称", "name")}
               </label>
               <Input
                 value={draft.name}
@@ -137,7 +294,7 @@ export function QuickAddEntryDialog({
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">
-                {"\u5206\u7c7b"}
+                {renderFieldLabel("分类", "category")}
               </label>
               <select
                 value={draft.category}
@@ -154,7 +311,7 @@ export function QuickAddEntryDialog({
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">
-                {"\u72b6\u6001"}
+                {renderFieldLabel("状态", "status")}
               </label>
               <select
                 value={draft.status}
@@ -172,7 +329,7 @@ export function QuickAddEntryDialog({
             {moduleId === "offline" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
-                  {"\u5730\u70b9"}
+                  {renderFieldLabel("地点", "location")}
                 </label>
                 <Input
                   value={draft.location}
@@ -185,7 +342,7 @@ export function QuickAddEntryDialog({
             {moduleId === "offline" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
-                  {"\u8bc4\u5206"}
+                  {renderFieldLabel("评分", "rating")}
                 </label>
                 <Input
                   value={draft.rating}
@@ -198,7 +355,7 @@ export function QuickAddEntryDialog({
             {moduleId === "shopping" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
-                  {"\u5e73\u53f0"}
+                  {renderFieldLabel("平台", "platform")}
                 </label>
                 <Input
                   value={draft.platform}
@@ -211,7 +368,7 @@ export function QuickAddEntryDialog({
             {moduleId === "shopping" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
-                  {"\u4ef7\u683c"}
+                  {renderFieldLabel("价格", "price")}
                 </label>
                 <Input
                   value={draft.price}
@@ -224,7 +381,7 @@ export function QuickAddEntryDialog({
             {moduleId === "websites" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
-                  {"\u57df\u540d"}
+                  {renderFieldLabel("域名", "domain")}
                 </label>
                 <Input
                   value={draft.domain}
@@ -237,20 +394,20 @@ export function QuickAddEntryDialog({
             {moduleId === "websites" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
-                  {"\u53ef\u8bbf\u95ee"}
+                  {renderFieldLabel("可访问", "access")}
                 </label>
                 <select
                   value={draft.access}
                   onChange={(event) => updateDraft("access", event.target.value)}
                   className={selectClassName}
                 >
-                  <option value="\u53ef\u8bbf\u95ee">
+                  <option value={"\u53ef\u8bbf\u95ee"}>
                     {"\u53ef\u8bbf\u95ee"}
                   </option>
-                  <option value="\u90e8\u5206\u53ef\u8bbf\u95ee">
+                  <option value={"\u90e8\u5206\u53ef\u8bbf\u95ee"}>
                     {"\u90e8\u5206\u53ef\u8bbf\u95ee"}
                   </option>
-                  <option value="\u4e0d\u53ef\u8bbf\u95ee">
+                  <option value={"\u4e0d\u53ef\u8bbf\u95ee"}>
                     {"\u4e0d\u53ef\u8bbf\u95ee"}
                   </option>
                 </select>
@@ -260,7 +417,7 @@ export function QuickAddEntryDialog({
             {moduleId === "websites" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
-                  {"\u7f51\u7ad9\u5185\u5bb9"}
+                  {renderFieldLabel("网站内容", "content")}
                 </label>
                 <Input
                   value={draft.content}
@@ -273,7 +430,7 @@ export function QuickAddEntryDialog({
             {moduleId === "websites" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
-                  {"\u7528\u9014"}
+                  {renderFieldLabel("用途", "purpose")}
                 </label>
                 <Input
                   value={draft.purpose}
@@ -285,7 +442,7 @@ export function QuickAddEntryDialog({
 
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium text-slate-700">
-                {"\u6807\u7b7e"}
+                {renderFieldLabel("标签", "tags")}
               </label>
               <Input
                 value={draft.tags}
@@ -296,7 +453,7 @@ export function QuickAddEntryDialog({
 
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium text-slate-700">
-                {"\u6765\u6e90"}
+                {renderFieldLabel("来源", "source")}
               </label>
               <Input
                 value={draft.source}
@@ -307,12 +464,30 @@ export function QuickAddEntryDialog({
 
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium text-slate-700">
-                {"\u5907\u6ce8"}
+                {renderFieldLabel("简短备注", "note")}
               </label>
               <Textarea
                 value={draft.note}
                 onChange={(event) => updateDraft("note", event.target.value)}
-                placeholder={"\u53ef\u9009\uff0c\u5148\u8bb0\u6700\u5173\u952e\u7684\u4e00\u53e5\u5224\u65ad\u5373\u53ef"}
+                placeholder={
+                  "\u53ef\u9009\uff0c\u7528\u4e00\u4e24\u53e5\u8bdd\u6982\u62ec\u8fd9\u6761\u8bb0\u5f55\u7684\u6838\u5fc3\u5224\u65ad"
+                }
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-slate-700">
+                {renderFieldLabel("详细 Markdown 内容", "markdownContent")}
+              </label>
+              <Textarea
+                value={draft.markdownContent}
+                onChange={(event) =>
+                  updateDraft("markdownContent", event.target.value)
+                }
+                placeholder={
+                  "\u53ef\u9009\uff0c\u652f\u6301\u6807\u9898\u3001\u5217\u8868\u3001\u5f15\u7528\u3001\u94fe\u63a5\u7b49\uff0c\u4f1a\u5199\u5165 content/<module>/<id>.md"
+                }
+                className="min-h-40"
               />
             </div>
           </div>
@@ -324,11 +499,17 @@ export function QuickAddEntryDialog({
           )}
 
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+            >
               {"\u53d6\u6d88"}
             </Button>
-            <Button onClick={handleSubmit}>
-              {"\u4fdd\u5b58\u5e76\u52a0\u5165\u5217\u8868"}
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting
+                ? "\u5199\u5165\u4e2d..."
+                : submitLabel ?? "\u4fdd\u5b58\u5e76\u5199\u5165\u4ed3\u5e93"}
             </Button>
           </div>
         </div>

@@ -1,18 +1,26 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { FileText, Hash, Layers3, X } from "lucide-react";
+import { FileText, Hash, Layers3, Pencil, Trash2, X } from "lucide-react";
 
 import { MarkdownContent } from "@/components/knowledge/MarkdownContent";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { resolveEntryDetail } from "@/lib/knowledge-detail";
+import { fetchEntryMarkdown } from "@/lib/knowledge-api";
+import {
+  getBundledMarkdownContent,
+  resolveEntryDetail,
+} from "@/lib/knowledge-detail";
 import type { DetailField, KnowledgeEntry } from "@/types/knowledge";
 
 type KnowledgeDetailDrawerProps = {
   entry: KnowledgeEntry | null;
   onClose: () => void;
   onTagClick: (tag: string) => void;
+  isAdmin?: boolean;
+  isDeleting?: boolean;
+  onEdit?: (entry: KnowledgeEntry, markdownContent: string) => void;
+  onDelete?: (entry: KnowledgeEntry) => void;
 };
 
 function DetailFieldGrid({ fields }: { fields: DetailField[] }) {
@@ -39,7 +47,13 @@ export function KnowledgeDetailDrawer({
   entry,
   onClose,
   onTagClick,
+  isAdmin = false,
+  isDeleting = false,
+  onEdit,
+  onDelete,
 }: KnowledgeDetailDrawerProps) {
+  const [remoteMarkdown, setRemoteMarkdown] = useState<string | null>(null);
+
   useEffect(() => {
     if (!entry) {
       return;
@@ -62,11 +76,40 @@ export function KnowledgeDetailDrawer({
     };
   }, [entry, onClose]);
 
+  useEffect(() => {
+    if (!entry) {
+      setRemoteMarkdown(null);
+      return;
+    }
+
+    let cancelled = false;
+    setRemoteMarkdown(null);
+
+    fetchEntryMarkdown(entry.module, entry.id)
+      .then((content) => {
+        if (!cancelled && content.trim()) {
+          setRemoteMarkdown(content.trim());
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRemoteMarkdown(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entry]);
+
   if (!entry) {
     return null;
   }
 
-  const detail = resolveEntryDetail(entry);
+  const detail = resolveEntryDetail(
+    entry,
+    remoteMarkdown ?? getBundledMarkdownContent(entry),
+  );
 
   return createPortal(
     <div
@@ -102,9 +145,34 @@ export function KnowledgeDetailDrawer({
               </p>
             </div>
 
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              {isAdmin && onEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    onEdit(entry, remoteMarkdown ?? getBundledMarkdownContent(entry))
+                  }
+                >
+                  <Pencil className="mr-1 h-4 w-4" />
+                  {"\u7f16\u8f91"}
+                </Button>
+              )}
+              {isAdmin && onDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={() => onDelete(entry)}
+                >
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  {isDeleting ? "\u5220\u9664\u4e2d..." : "\u5220\u9664"}
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" onClick={onClose}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
 
