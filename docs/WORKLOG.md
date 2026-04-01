@@ -255,3 +255,29 @@
 
 验证：
 - 已生成 `docs/1.0.0-change-log.md`。
+
+## 2026-04-01 favicon 缓存更新
+
+目标：
+- 让替换后的 `favicon.svg` 能立即生效，避免浏览器继续显示旧图标。
+
+主要改动：
+- 将 `index.html` 中的 favicon 引用改为 `BASE_URL + favicon.svg`。
+- 为 favicon 增加版本查询参数，用于主动绕过浏览器缓存。
+
+验证：
+- `npm run build` 通过。
+
+## 2026-04-01 favicon 源文件修正
+
+目标：
+- 修正 favicon 实际替换位置错误的问题，确保开发和构建都读取同一份新图标。
+
+主要改动：
+- 确认用户之前替换的是 `dist/favicon.svg`，而非真正的源文件。
+- 将新的 favicon 内容同步覆盖到 `public/favicon.svg`。
+- 继续递增 favicon 查询参数，进一步避免旧缓存残留。
+
+验证：
+- `npm run build` 通过。
+- 构建后的 `dist/favicon.svg` 已与 `public/favicon.svg` 一致。
