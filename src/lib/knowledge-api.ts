@@ -46,6 +46,10 @@ async function readErrorMessage(response: Response) {
   }
 }
 
+function getNetworkFailureMessage(featureName: string) {
+  return `${featureName}服务不可达。若当前运行在 GitHub Pages，定位和写入类功能不可用；若在本地开发，请确认 npm run dev 已启动且本地 API 服务正在运行。`;
+}
+
 export async function fetchKnowledgeData() {
   const response = await fetch(knowledgeApiBase, {
     credentials: "same-origin",
@@ -356,50 +360,74 @@ export async function resetAiSettings() {
 }
 
 export async function reverseGeocodeOfflineLocation(payload: ReverseGeocodePayload) {
-  const response = await fetch(`${locationApiBase}/reverse-geocode`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const response = await fetch(`${locationApiBase}/reverse-geocode`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response));
+    }
+
+    const data = (await response.json()) as { location: OfflineLocationResult };
+    return data.location;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(getNetworkFailureMessage("定位"));
+    }
+
+    throw error;
   }
-
-  const data = (await response.json()) as { location: OfflineLocationResult };
-  return data.location;
 }
 
 export async function geocodeOfflineLocation(payload: GeocodeAddressPayload) {
-  const response = await fetch(`${locationApiBase}/geocode`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const response = await fetch(`${locationApiBase}/geocode`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response));
+    }
+
+    const data = (await response.json()) as { location: OfflineLocationResult };
+    return data.location;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(getNetworkFailureMessage("地址解析"));
+    }
+
+    throw error;
   }
-
-  const data = (await response.json()) as { location: OfflineLocationResult };
-  return data.location;
 }
 
 export async function fetchOfflineIpFallbackLocation() {
-  const response = await fetch(`${locationApiBase}/ip-fallback`, {
-    credentials: "same-origin",
-  });
+  try {
+    const response = await fetch(`${locationApiBase}/ip-fallback`, {
+      credentials: "same-origin",
+    });
 
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response));
+    }
+
+    const data = (await response.json()) as { location: OfflineLocationResult };
+    return data.location;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(getNetworkFailureMessage("IP 定位"));
+    }
+
+    throw error;
   }
-
-  const data = (await response.json()) as { location: OfflineLocationResult };
-  return data.location;
 }

@@ -75,6 +75,13 @@ export async function geocodeAddress({ address, city = "" }) {
   });
 }
 
+export async function searchPlaceText({ keywords, city = "" }) {
+  return requestAmap("/v5/place/text", {
+    keywords,
+    region: city,
+  });
+}
+
 export async function locateByIp(ip = "") {
   return requestAmap("/v3/ip", ip ? { ip } : {});
 }

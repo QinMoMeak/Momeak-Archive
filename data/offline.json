@@ -70,5 +70,33 @@
     "source": "自己路过保存",
     "createdAt": "2026-03-12",
     "updatedAt": "2026-03-25"
+  },
+  {
+    "id": "offline-005",
+    "module": "offline",
+    "name": "许记排骨",
+    "category": "饭店",
+    "status": "想去",
+    "tags": [
+      "本地小吃",
+      "排骨"
+    ],
+    "note": "位于济南县东巷的许记排骨，具体特色与评价需进一步确认。",
+    "source": "用户输入",
+    "createdAt": "2026-04-14",
+    "updatedAt": "2026-04-14",
+    "location": "济南·县东巷",
+    "locationText": "许记排骨（县东巷）",
+    "formattedAddress": "山东省济南市历下区许记排骨(天下第一泉店)",
+    "province": "山东省",
+    "city": "济南市",
+    "district": "历下区",
+    "adcode": "370102",
+    "lng": 117.030228,
+    "lat": 36.668626,
+    "locationSource": "geocode",
+    "locationAccuracy": "exact",
+    "locationRectangle": "",
+    "rating": null
   }
 ]
