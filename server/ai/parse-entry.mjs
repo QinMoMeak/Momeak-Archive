@@ -10,6 +10,7 @@ import {
   resolveConfiguredField,
 } from "./matchers.mjs";
 import { getModuleAiConfig } from "./module-config.mjs";
+import { modelSupportsImages } from "./providers.mjs";
 import { buildModulePrompt } from "./prompts/index.mjs";
 import { resolveRuntimeAiConfig } from "./resolve-runtime-config.mjs";
 import {
@@ -140,6 +141,10 @@ function createDraft(moduleId, fields) {
     rating: moduleId === "offline" && fields.rating !== null ? String(fields.rating) : "",
     platform: moduleId === "shopping" ? fields.platform : "",
     price: moduleId === "shopping" && fields.price !== null ? String(fields.price) : "",
+    quantity: moduleId === "shopping" ? fields.quantity : "",
+    specification: moduleId === "shopping" ? fields.specification : "",
+    storeName: moduleId === "shopping" ? fields.storeName : "",
+    discountInfo: moduleId === "shopping" ? fields.discountInfo : "",
     domain: moduleId === "websites" ? fields.domain : "",
     access: moduleId === "websites" ? fields.access : "",
     content: moduleId === "websites" ? fields.content : "",
@@ -183,6 +188,10 @@ function buildFields(moduleId, rawText, aiResult, overrides = {}) {
     rating: aiResult.rating ?? null,
     platform: cleanInlineValue(aiResult.platform),
     price: aiResult.price ?? null,
+    quantity: cleanInlineValue(aiResult.quantity),
+    specification: cleanInlineValue(aiResult.specification),
+    storeName: cleanInlineValue(aiResult.storeName),
+    discountInfo: cleanMultilineValue(aiResult.discountInfo),
     domain: cleanInlineValue(overrides.domain ?? aiResult.domain),
     access: cleanInlineValue(overrides.access ?? aiResult.access),
     content: siteContentSummary,
@@ -301,6 +310,7 @@ function validateWebsiteFields({
 async function analyzeGenericEntry({
   moduleId,
   rawText,
+  images,
   runtimeConfig,
   runtime,
   mode,
@@ -308,6 +318,8 @@ async function analyzeGenericEntry({
   const prompt = buildModulePrompt(moduleId, {
     rawText,
     mode,
+    hasImages: images.length > 0,
+    imageCount: images.length,
     extractedDomain: "",
     availableCategories: runtime.availableCategories,
     availableStatuses: runtime.availableStatuses,
@@ -322,11 +334,13 @@ async function analyzeGenericEntry({
           schema: aiMultipleModelOutputSchema,
           jsonSchema: aiMultipleModelOutputJsonSchema,
           schemaName: `knowledge_${moduleId}_multiple_parse`,
+          images,
         }
       : {
           schema: aiModelOutputSchema,
           jsonSchema: aiModelOutputJsonSchema,
           schemaName: `knowledge_${moduleId}_single_parse`,
+          images,
         },
   );
 
@@ -447,11 +461,17 @@ function finalizeCandidate({
 }
 
 export async function parseKnowledgeEntryWithAi(bodyInput) {
-  const { moduleId, rawText, mode } = aiParseRequestSchema.parse(bodyInput);
+  const { moduleId, rawText, mode, images } = aiParseRequestSchema.parse(bodyInput);
   const runtimeConfig = await resolveRuntimeAiConfig();
 
   if (!runtimeConfig.model) {
     throw new Error("当前没有可用模型，请先在 AI 设置中选择。");
+  }
+
+  if (images.length > 0 && !modelSupportsImages(runtimeConfig.provider.id, runtimeConfig.model)) {
+    throw new Error(
+      `当前模型 ${runtimeConfig.model} 不支持图片解析，请在 AI 设置中切换到支持视觉输入的模型，例如 qwen 或 qwen3.5-omni-plus-image。`,
+    );
   }
 
   const runtime = await getRuntimeConfig(moduleId);
@@ -459,6 +479,7 @@ export async function parseKnowledgeEntryWithAi(bodyInput) {
     moduleId === "websites"
       ? await analyzeWebsiteEntryWithAi({
           rawText,
+          images,
           mode,
           runtimeConfig,
           availableCategories: runtime.availableCategories,
@@ -467,6 +488,7 @@ export async function parseKnowledgeEntryWithAi(bodyInput) {
       : await analyzeGenericEntry({
           moduleId,
           rawText,
+          images,
           runtimeConfig,
           runtime,
           mode,

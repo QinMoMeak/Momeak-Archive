@@ -2,6 +2,14 @@ import type { ModuleId, QuickAddDraft } from "@/types/knowledge";
 
 export type AiParseMode = "single" | "multiple";
 
+export type AiInputImage = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+};
+
 export type AiSuggestionEntry = {
   moduleId: ModuleId;
   draft: QuickAddDraft;
@@ -56,8 +64,9 @@ export type AiSuggestionResult =
 
 export type AiParseEntryPayload = {
   moduleId: ModuleId;
-  rawText: string;
+  rawText?: string;
   mode: AiParseMode;
+  images?: AiInputImage[];
 };
 
 export type AiParseEntryResponse = {

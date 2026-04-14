@@ -83,6 +83,11 @@
     aiSettingsLoading: "加载当前 AI 配置中...",
     dataSync: "数据同步",
     dataSyncHint: "导入导出 ZIP、配置 WebDAV、上传或恢复远程备份。",
+    shoppingSheetsTitle: "工作表",
+    shoppingSheetsHint: "像多工作表一样按分类切换当前表格视图。",
+    shoppingAddSheet: "新建工作表",
+    shoppingAddSheetPlaceholder: "输入新分类名称",
+    shoppingSheetDuplicate: "分类名称已存在，请换一个。",
   },
   auth: {
     password: "密码",

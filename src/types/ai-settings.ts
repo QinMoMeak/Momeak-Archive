@@ -2,6 +2,7 @@ export type AiModelOption = {
   id: string;
   label: string;
   description: string;
+  supportsImages?: boolean;
 };
 
 export type AiProviderOption = {
@@ -26,6 +27,7 @@ export type EffectiveAiSettings = {
   provider: string;
   model: string;
   baseUrl: string;
+  supportsImages: boolean;
   sources: {
     provider: "manual" | "env" | "default";
     model: "manual" | "env" | "default";
@@ -58,4 +60,3 @@ export type SaveAiSettingsPayload = {
   baseUrl: string;
   keepExistingApiKey: boolean;
 };
-

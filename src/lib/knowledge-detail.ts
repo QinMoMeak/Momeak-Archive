@@ -1,6 +1,6 @@
 import { moduleDefinitions } from "@/data/knowledge";
 import { formatDate, formatPrice } from "@/lib/knowledge";
-import type { DetailField, KnowledgeEntry, OfflineEntry } from "@/types/knowledge";
+import type { DetailField, KnowledgeEntry, OfflineEntry, ShoppingEntry } from "@/types/knowledge";
 
 const markdownModules = import.meta.glob("../../content/**/*.md", {
   query: "?raw",
@@ -97,12 +97,15 @@ function getBasicInfo(entry: KnowledgeEntry): DetailField[] {
   }
 
   if (entry.module === "shopping") {
+    const shoppingEntry = entry as ShoppingEntry;
     fields.push(
-      { label: "平台", value: entry.platform || "未填写" },
+      { label: "平台", value: shoppingEntry.platform || "未填写" },
       {
         label: "价格",
-        value: entry.price === null ? "未填写" : formatPrice(entry.price),
+        value: shoppingEntry.price === null ? "未填写" : formatPrice(shoppingEntry.price),
       },
+      { label: "数量", value: shoppingEntry.quantity || "未填写" },
+      { label: "规格 / 型号", value: shoppingEntry.specification || "未填写" },
     );
   }
 
@@ -136,42 +139,33 @@ function getExtensionInfo(entry: KnowledgeEntry): DetailField[] {
 
   if (entry.module === "offline") {
     fields.push(
-      {
-        label: "定位来源",
-        value: getOfflineSourceLabel(entry),
-      },
-      {
-        label: "坐标",
-        value: getCoordinateLabel(entry),
-      },
+      { label: "定位来源", value: getOfflineSourceLabel(entry) },
+      { label: "坐标", value: getCoordinateLabel(entry) },
       {
         label: "省市区",
         value:
-          [entry.province, entry.city, entry.district].filter(Boolean).join(" / ") ||
-          "未填写",
+          [entry.province, entry.city, entry.district].filter(Boolean).join(" / ") || "未填写",
       },
-      {
-        label: "adcode",
-        value: entry.adcode || "未填写",
-      },
+      { label: "adcode", value: entry.adcode || "未填写" },
     );
 
     if (entry.locationRectangle) {
-      fields.push({
-        label: "IP 近似范围",
-        value: entry.locationRectangle,
-      });
+      fields.push({ label: "IP 近似范围", value: entry.locationRectangle });
     }
 
     fields.push({
       label: "推荐强度",
-      value:
-        entry.rating === null ? "未评分" : entry.rating >= 4.7 ? "高" : "中",
+      value: entry.rating === null ? "未评分" : entry.rating >= 4.7 ? "高" : "中",
     });
   }
 
   if (entry.module === "shopping") {
-    fields.push({ label: "价格带", value: getPriceBand(entry.price) });
+    const shoppingEntry = entry as ShoppingEntry;
+    fields.push(
+      { label: "价格带", value: getPriceBand(shoppingEntry.price) },
+      { label: "店铺 / 来源店", value: shoppingEntry.storeName || "未填写" },
+      { label: "优惠信息", value: shoppingEntry.discountInfo || "未填写" },
+    );
   }
 
   if (entry.module === "websites") {
@@ -188,8 +182,7 @@ function getExtensionInfo(entry: KnowledgeEntry): DetailField[] {
       { label: "建议分类", value: entry.suggestedCategory || "未建议" },
       {
         label: "置信度",
-        value:
-          entry.confidence === null ? "未提供" : `${Math.round(entry.confidence * 100)}%`,
+        value: entry.confidence === null ? "未提供" : `${Math.round(entry.confidence * 100)}%`,
       },
     );
   }
@@ -202,17 +195,11 @@ function getSourceAndTime(entry: KnowledgeEntry, hasMarkdown: boolean): DetailFi
     { label: "来源", value: entry.source || "未填写" },
     { label: "新增时间", value: formatDate(entry.createdAt) },
     { label: "更新时间", value: formatDate(entry.updatedAt) },
-    {
-      label: "正文来源",
-      value: hasMarkdown ? "Markdown 正文" : "JSON 备注",
-    },
+    { label: "正文来源", value: hasMarkdown ? "Markdown 正文" : "JSON 备注" },
   ];
 }
 
-export function resolveEntryDetail(
-  entry: KnowledgeEntry,
-  markdownOverride?: string | null,
-) {
+export function resolveEntryDetail(entry: KnowledgeEntry, markdownOverride?: string | null) {
   const markdown = markdownOverride ?? getBundledMarkdownContent(entry);
   const hasMarkdown = markdown.length > 0;
   const definition = moduleDefinitions[entry.module];

@@ -235,6 +235,9 @@ export function AiSettingsDialog({
               {modelOptions.find((model) => model.id === form.model) && (
                 <div className="text-xs leading-5 text-slate-500 dark:text-slate-400">
                   {modelOptions.find((model) => model.id === form.model)?.description}
+                  {modelOptions.find((model) => model.id === form.model)?.supportsImages
+                    ? " 支持图片解析。"
+                    : " 当前仅支持文本解析。"}
                 </div>
               )}
             </div>

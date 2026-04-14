@@ -59,7 +59,7 @@ export function getPrimaryMeta(entry: KnowledgeEntry) {
         entry.province
       );
     case "shopping":
-      return entry.platform || "未填写";
+      return entry.storeName || entry.platform || "未填写";
     case "websites":
       return entry.domain;
     case "inbox":
@@ -72,7 +72,7 @@ export function getSecondaryMeta(entry: KnowledgeEntry) {
     case "offline":
       return entry.rating === null ? "未评分" : entry.rating.toFixed(1);
     case "shopping":
-      return entry.price === null ? "未填写" : formatPrice(entry.price);
+      return entry.specification || (entry.price === null ? "未填写" : formatPrice(entry.price));
     case "websites":
       return entry.access;
     case "inbox":
@@ -185,6 +185,11 @@ export function matchesSearch(entry: KnowledgeEntry, search: string) {
     ...entry.tags,
     getPrimaryMeta(entry),
     getSecondaryMeta(entry),
+    "platform" in entry ? (entry.platform ?? "") : "",
+    "storeName" in entry ? (entry.storeName ?? "") : "",
+    "specification" in entry ? (entry.specification ?? "") : "",
+    "quantity" in entry ? (entry.quantity ?? "") : "",
+    "discountInfo" in entry ? (entry.discountInfo ?? "") : "",
     "content" in entry ? entry.content : "",
     "purpose" in entry ? entry.purpose : "",
     "rawContent" in entry ? entry.rawContent : "",
@@ -250,6 +255,10 @@ export function createDraftFromEntry(
     rating: entry.module === "offline" && entry.rating !== null ? String(entry.rating) : "",
     platform: entry.module === "shopping" ? entry.platform : "",
     price: entry.module === "shopping" && entry.price !== null ? String(entry.price) : "",
+    quantity: entry.module === "shopping" ? entry.quantity ?? "" : "",
+    specification: entry.module === "shopping" ? entry.specification ?? "" : "",
+    storeName: entry.module === "shopping" ? entry.storeName ?? "" : "",
+    discountInfo: entry.module === "shopping" ? entry.discountInfo ?? "" : "",
     domain: entry.module === "websites" ? entry.domain : "",
     access: entry.module === "websites" ? entry.access : "可访问",
     content: entry.module === "websites" ? entry.content : "",
@@ -291,6 +300,10 @@ export function getEmptyDraft(moduleId: ModuleId): QuickAddDraft {
     rating: "",
     platform: "",
     price: "",
+    quantity: "",
+    specification: "",
+    storeName: "",
+    discountInfo: "",
     domain: "",
     access: "可访问",
     content: "",

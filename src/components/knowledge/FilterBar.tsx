@@ -22,6 +22,7 @@ type FilterBarProps = {
   activeFilterCount: number;
   onClearFilters: () => void;
   onClearTagSelection: () => void;
+  showCategoryFilter?: boolean;
 };
 
 const selectClassName =
@@ -53,6 +54,7 @@ export function FilterBar({
   activeFilterCount,
   onClearFilters,
   onClearTagSelection,
+  showCategoryFilter = true,
 }: FilterBarProps) {
   const { t } = useI18n();
 
@@ -72,7 +74,8 @@ export function FilterBar({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[520px] xl:grid-cols-3">
+        <div className={`grid gap-3 ${showCategoryFilter ? "sm:grid-cols-3 xl:min-w-[520px] xl:grid-cols-3" : "sm:grid-cols-2 xl:min-w-[360px] xl:grid-cols-2"}`}>
+          {showCategoryFilter && (
           <div>
             <FilterLabel>{t("filter.category")}</FilterLabel>
             <select
@@ -88,6 +91,7 @@ export function FilterBar({
               ))}
             </select>
           </div>
+          )}
 
           <div>
             <FilterLabel>{t("filter.status")}</FilterLabel>

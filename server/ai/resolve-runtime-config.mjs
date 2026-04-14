@@ -8,7 +8,7 @@ import {
   configuredAiModel,
   configuredAiProvider,
 } from "../config.mjs";
-import { getAiProvider, getAiProviders } from "./providers.mjs";
+import { getAiModel, getAiProvider, getAiProviders } from "./providers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
@@ -196,6 +196,8 @@ export async function resolveRuntimeAiConfig() {
     providers,
     provider,
     model: modelResolution.value,
+    modelOption: getAiModel(provider.id, modelResolution.value),
+    supportsImages: Boolean(getAiModel(provider.id, modelResolution.value)?.supportsImages),
     apiKey,
     baseUrl,
     sources: {
@@ -228,6 +230,7 @@ export async function getAiSettingsView() {
       provider: runtime.provider.id,
       model: runtime.model,
       baseUrl: runtime.baseUrl,
+      supportsImages: runtime.supportsImages,
       sources: runtime.sources,
       hasApiKey: Boolean(runtime.apiKey),
       apiKeySource: runtime.sources.apiKey,

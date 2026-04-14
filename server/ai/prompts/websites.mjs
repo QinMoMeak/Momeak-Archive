@@ -42,6 +42,8 @@ function formatReaderContext(readerContexts = []) {
 export function buildWebsitesPrompt({
   rawText,
   mode = "single",
+  hasImages = false,
+  imageCount = 0,
   extractedDomain = "",
   normalizedUrl = "",
   extractedDomains = [],
@@ -52,13 +54,17 @@ export function buildWebsitesPrompt({
 }) {
   const multipleHint =
     mode === "multiple"
-      ? "当前是多条解析模式。若输入里出现多个网址、多个网站名称、榜单、合集、导航清单或多项目列表，请优先拆成多条独立网站候选。不要把整段网站合集压成一条记录。"
+      ? "当前是多条解析模式。若输入里出现多个网址、多个网站名、榜单、合集、导航清单或多项目列表，请优先拆成多条独立网站候选，不要把整段网站合集压成一条记录。"
       : "当前是单条解析模式。请把整段内容尽量整理成一条网站记录。";
 
   const outputHint =
     mode === "multiple"
-      ? "输出必须是一个 JSON 对象：{ entries: [...], warnings: [] }。entries 中每一项都是一条网站候选。"
+      ? "输出必须是一个 JSON 对象：{ entries: [...], warnings: [] }。entries 中每一项都对应一条网站候选。"
       : "输出必须是一个 JSON 对象，对应单条网站记录。";
+
+  const imageHint = hasImages
+    ? `本次还提供了 ${imageCount} 张图片。若截图中出现网址、域名、网站名称、页面标题或功能描述，请一并纳入分析；但不要因为图片里的信息不足就编造网站用途。`
+    : "本次没有提供图片，只根据文本与 Reader 结果分析。";
 
   const readerSection =
     mode === "multiple"
@@ -66,8 +72,7 @@ export function buildWebsitesPrompt({
       : formatReaderContext(readerContext ? [readerContext] : []);
 
   return {
-    systemPrompt: `你是个人知识库里的“网站收集”录入助手，负责把原始文本整理成长期可维护的网站条目。
-${multipleHint}
+    systemPrompt: `你是个人知识库里的“网站收集”录入助手，负责把原始文本和辅助截图整理成长期可维护的网站条目。${multipleHint}
 ${outputHint}
 
 必须遵守：
@@ -77,9 +82,11 @@ ${outputHint}
 4. note / markdownContent 要重点整理：网站内容、网站用途、适合场景、特点。
 5. access 只有在信息明确时才返回，否则返回 null。
 6. suggestedCategory / suggestedStatus 只是建议值，不能假设一定可直接落库。
-7. 多条模式下，每个对象尽量独立成条。`,
-    userPrompt: `请解析下面这段网站相关内容。
+7. 如果附带图片，图片只能作为辅助线索，仍然要优先依赖真实网址与域名。
+8. 如果 Reader 内容不足，不要编造网站用途。
 
+${imageHint}`,
+    userPrompt: `请解析下面这段网站相关内容。
 ${formatList("当前可用分类（仅供参考，最终仍会做运行时校验）：", availableCategories)}
 
 ${formatList("当前可用状态（仅供参考，最终仍会做运行时校验）：", availableStatuses)}
@@ -108,7 +115,7 @@ ${readerSection}
 - access：仅返回“可访问 / 部分可访问 / 不可访问”之一，无法判断就返回 null
 - tags：短标签数组
 - source：来源
-- note：适合列表展示的摘要
+- note：适合列表显示的摘要
 - markdownContent：适合详情展示的 Markdown
 - siteContentSummary：网站主要内容
 - sitePurpose：网站用途 / 适合场景
@@ -118,9 +125,9 @@ ${readerSection}
 重要限制：
 - 如果文本里有多个网址，请优先拆成多条。
 - 如果只有网站名称但没有完整 URL，可以谨慎推断 domain，但必须在 warnings 里提醒用户确认。
-- 如果 Reader 内容不足，不要编造网站用途。
+- 如果图片或 Reader 信息不足，不要编造网站用途。
 
 原始文本：
-"""${rawText}"""`,
+"""${rawText || "（未提供额外文本说明）"}"""`,
   };
 }

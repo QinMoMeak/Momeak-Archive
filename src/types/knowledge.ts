@@ -49,6 +49,10 @@ export type ShoppingEntry = EntryBase & {
   module: "shopping";
   platform: string;
   price: number | null;
+  quantity?: string;
+  specification?: string;
+  storeName?: string;
+  discountInfo?: string;
 };
 
 export type WebsiteEntry = EntryBase & {
@@ -128,6 +132,10 @@ export type QuickAddDraft = {
   rating: string;
   platform: string;
   price: string;
+  quantity: string;
+  specification: string;
+  storeName: string;
+  discountInfo: string;
   domain: string;
   access: string;
   content: string;

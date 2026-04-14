@@ -21,7 +21,7 @@ import {
   reverseGeocodeOfflineLocation,
 } from "@/lib/knowledge-api";
 import { getEmptyDraft, getUniqueValues, mergeDraftWithAiResult } from "@/lib/knowledge";
-import type { AiParseMode, AiSuggestionResult } from "@/types/ai";
+import type { AiInputImage, AiParseMode, AiSuggestionResult } from "@/types/ai";
 import type {
   BatchCreateKnowledgeEntriesResponse,
   ModuleId,
@@ -39,7 +39,11 @@ type QuickAddEntryDialogProps = {
   title?: string;
   description?: string;
   submitLabel?: string;
-  onAiParse: (rawText: string, mode: AiParseMode) => Promise<AiSuggestionResult>;
+  onAiParse: (
+    rawText: string,
+    mode: AiParseMode,
+    images: AiInputImage[],
+  ) => Promise<AiSuggestionResult>;
   onCreateCategory?: (name: string) => Promise<void> | void;
   onSubmit: (draft: QuickAddDraft) => Promise<void> | void;
   onBatchSubmit?: (
@@ -60,6 +64,35 @@ const rawContentTypeOptions = [
   "lyrics",
   "screenshot-note",
 ];
+const maxAiImageCount = 4;
+const maxAiImageSizeBytes = 6 * 1024 * 1024;
+
+function fileToAiImage(file: File) {
+  return new Promise<AiInputImage>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("图片读取失败，请重新选择。"));
+        return;
+      }
+
+      resolve({
+        id: `${file.name}-${file.size}-${file.lastModified}`,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: reader.result,
+      });
+    };
+
+    reader.onerror = () => {
+      reject(new Error("图片读取失败，请重新选择。"));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
 
 function mapLocationResultToDraft(result: OfflineLocationResult) {
   const location = result.locationText || result.formattedAddress || result.city || result.province;
@@ -160,6 +193,7 @@ export function QuickAddEntryDialog(props: QuickAddEntryDialogProps) {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiRawText, setAiRawText] = useState("");
+  const [aiImages, setAiImages] = useState<AiInputImage[]>([]);
   const [aiError, setAiError] = useState("");
   const [isAiParsing, setIsAiParsing] = useState(false);
   const [aiResult, setAiResult] = useState<AiSuggestionResult | null>(null);
@@ -196,6 +230,7 @@ export function QuickAddEntryDialog(props: QuickAddEntryDialogProps) {
       setAiRawText("");
     }
 
+    setAiImages([]);
     setError("");
     setAiError("");
     setCandidateSubmitError("");
@@ -220,9 +255,48 @@ export function QuickAddEntryDialog(props: QuickAddEntryDialogProps) {
     }));
   }
 
+  async function handleSelectAiImages(files: FileList | File[]) {
+    const incomingFiles = Array.from(files);
+
+    if (incomingFiles.length === 0) {
+      return;
+    }
+
+    if (aiImages.length + incomingFiles.length > maxAiImageCount) {
+      setAiError(`最多上传 ${maxAiImageCount} 张图片。`);
+      return;
+    }
+
+    const invalidFile = incomingFiles.find((file) => !file.type.startsWith("image/"));
+    if (invalidFile) {
+      setAiError("仅支持上传图片文件。");
+      return;
+    }
+
+    const oversizedFile = incomingFiles.find((file) => file.size > maxAiImageSizeBytes);
+    if (oversizedFile) {
+      setAiError(`图片“${oversizedFile.name}”超过 6 MB，请压缩后重试。`);
+      return;
+    }
+
+    try {
+      setAiError("");
+      const parsedImages = await Promise.all(incomingFiles.map((file) => fileToAiImage(file)));
+      setAiImages((current) => [...current, ...parsedImages]);
+    } catch (imageError) {
+      setAiError(
+        imageError instanceof Error ? imageError.message : "图片处理失败，请重新选择。",
+      );
+    }
+  }
+
+  function handleRemoveAiImage(imageId: string) {
+    setAiImages((current) => current.filter((image) => image.id !== imageId));
+  }
+
   async function handleAiParse() {
-    if (!aiRawText.trim()) {
-      setAiError("请先输入一段原始文本，再开始 AI 解析。");
+    if (!aiRawText.trim() && aiImages.length === 0) {
+      setAiError("请先输入文本或上传图片，再开始 AI 解析。");
       return;
     }
 
@@ -230,7 +304,7 @@ export function QuickAddEntryDialog(props: QuickAddEntryDialogProps) {
       setAiError("");
       setCandidateSubmitError("");
       setIsAiParsing(true);
-      const result = await onAiParse(aiRawText, aiParseMode);
+      const result = await onAiParse(aiRawText, aiParseMode, aiImages);
       setAiResult(result);
 
       if (result.mode === "single") {
@@ -508,9 +582,12 @@ export function QuickAddEntryDialog(props: QuickAddEntryDialogProps) {
             <AiAssistPanel
               moduleId={moduleId}
               rawText={aiRawText}
+              images={aiImages}
               parseMode={aiParseMode}
               onParseModeChange={setAiParseMode}
               onRawTextChange={setAiRawText}
+              onSelectImages={handleSelectAiImages}
+              onRemoveImage={handleRemoveAiImage}
               onParse={() => void handleAiParse()}
               isParsing={isAiParsing}
               error={aiError}
@@ -675,6 +752,30 @@ export function QuickAddEntryDialog(props: QuickAddEntryDialogProps) {
                       {renderFieldLabel("价格", "price")}
                     </label>
                     <Input value={draft.price} onChange={(event) => updateDraft("price", event.target.value)} placeholder="可选，例如 99" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {renderFieldLabel("数量", "quantity")}
+                    </label>
+                    <Input value={draft.quantity} onChange={(event) => updateDraft("quantity", event.target.value)} placeholder="可选，例如 2 件 / 3 包" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {renderFieldLabel("规格 / 型号", "specification")}
+                    </label>
+                    <Input value={draft.specification} onChange={(event) => updateDraft("specification", event.target.value)} placeholder="可选，例如 500g / Type-C / 42 码" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {renderFieldLabel("店铺 / 来源店", "storeName")}
+                    </label>
+                    <Input value={draft.storeName} onChange={(event) => updateDraft("storeName", event.target.value)} placeholder="可选，例如 官方旗舰店" />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {renderFieldLabel("优惠信息", "discountInfo")}
+                    </label>
+                    <Textarea value={draft.discountInfo} onChange={(event) => updateDraft("discountInfo", event.target.value)} placeholder="可选，例如 满减、券后价、实付金额等" className="min-h-24" />
                   </div>
                 </>
               )}

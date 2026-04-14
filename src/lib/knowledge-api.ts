@@ -1,4 +1,5 @@
 import type {
+  AiInputImage,
   AiParseEntryPayload,
   AiParseEntryResponse,
   AiParseMode,
@@ -286,11 +287,13 @@ export async function parseEntryWithAi(
   moduleId: ModuleId,
   rawText: string,
   mode: AiParseMode,
+  images: AiInputImage[] = [],
 ) {
   const payload: AiParseEntryPayload = {
     moduleId,
     rawText,
     mode,
+    images,
   };
 
   const response = await fetch(`${aiApiBase}/parse-entry`, {

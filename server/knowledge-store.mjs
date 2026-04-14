@@ -280,6 +280,10 @@ function normalizeDraft(moduleId, draft) {
     rating: parseNumber(draft.rating),
     platform: cleanInlineText(draft.platform),
     price: parseNumber(draft.price),
+    quantity: cleanInlineText(draft.quantity),
+    specification: cleanInlineText(draft.specification),
+    storeName: cleanInlineText(draft.storeName),
+    discountInfo: cleanMultilineText(draft.discountInfo),
     domain: cleanInlineText(draft.domain),
     access: cleanInlineText(draft.access) || "可访问",
     content: cleanInlineText(draft.content),
@@ -384,6 +388,10 @@ function buildEntry(moduleId, draft, entryId) {
       module: "shopping",
       platform: draft.platform,
       price: draft.price,
+      quantity: draft.quantity,
+      specification: draft.specification,
+      storeName: draft.storeName,
+      discountInfo: draft.discountInfo,
     };
   }
 

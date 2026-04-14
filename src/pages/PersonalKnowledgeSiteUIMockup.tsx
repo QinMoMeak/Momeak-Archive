@@ -18,6 +18,7 @@ import { CategoryManagerDialog } from "@/components/knowledge/CategoryManagerDia
 import { FilterBar } from "@/components/knowledge/FilterBar";
 import { KnowledgeDetailDrawer } from "@/components/knowledge/KnowledgeDetailDrawer";
 import { QuickAddEntryDialog } from "@/components/knowledge/QuickAddEntryDialog";
+import { ShoppingSheetTabs } from "@/components/knowledge/ShoppingSheetTabs";
 import { AiSettingsDialog } from "@/components/settings/AiSettingsDialog";
 import { DataSyncDialog } from "@/components/settings/DataSyncDialog";
 import { InterfaceSettingsPanel } from "@/components/settings/InterfaceSettingsPanel";
@@ -64,6 +65,7 @@ import {
   createDraftFromEntry,
   entryMatchesTags,
   formatDate,
+  getEmptyDraft,
   getPrimaryMeta,
   getSecondaryMeta,
   getSortOptions,
@@ -163,6 +165,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
     initialDraft: QuickAddDraft | null;
     entry: KnowledgeEntry | null;
   } | null>(null);
+  const [shoppingSheetCategory, setShoppingSheetCategory] = useState("");
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
   const visibleModuleList = useMemo(
     () => (isAdmin ? moduleList : moduleList.filter((module) => module.id !== "inbox")),
@@ -175,6 +178,23 @@ export default function PersonalKnowledgeSiteUIMockup() {
   const translatedHeaders = moduleHeaders(activeModule);
   const Icon = moduleIcons[currentModule.iconKey];
   const rows = knowledgeData[activeModule];
+  const shoppingSheetCategories = useMemo(
+    () =>
+      getUniqueValues([
+        ...moduleDefinitions.shopping.defaultCategories,
+        ...(knowledgeMeta.categories.shopping ?? []),
+        ...knowledgeData.shopping.map((entry) => entry.category),
+      ]),
+    [knowledgeData.shopping, knowledgeMeta.categories.shopping],
+  );
+  const shoppingSheetCounts = useMemo(
+    () =>
+      knowledgeData.shopping.reduce<Record<string, number>>((result, entry) => {
+        result[entry.category] = (result[entry.category] ?? 0) + 1;
+        return result;
+      }, {}),
+    [knowledgeData.shopping],
+  );
   const moduleEntryCounts = useMemo(
     () =>
       moduleList.reduce<Record<ModuleId, number>>((result, module) => {
@@ -229,6 +249,24 @@ export default function PersonalKnowledgeSiteUIMockup() {
   }, [activeModule]);
 
   useEffect(() => {
+    if (activeModule !== "shopping") {
+      return;
+    }
+
+    if (shoppingSheetCategories.length === 0) {
+      setShoppingSheetCategory("");
+      return;
+    }
+
+    if (
+      !shoppingSheetCategory ||
+      !shoppingSheetCategories.includes(shoppingSheetCategory)
+    ) {
+      setShoppingSheetCategory(shoppingSheetCategories[0]);
+    }
+  }, [activeModule, shoppingSheetCategories, shoppingSheetCategory]);
+
+  useEffect(() => {
     if (!highlightedEntryId) {
       return;
     }
@@ -270,23 +308,31 @@ export default function PersonalKnowledgeSiteUIMockup() {
     }
   }, [activeModule, editorState, isAdmin, selectedItem]);
 
+  const scopedRows = useMemo(() => {
+    if (activeModule === "shopping" && shoppingSheetCategory) {
+      return rows.filter((item) => item.category === shoppingSheetCategory);
+    }
+
+    return rows;
+  }, [activeModule, rows, shoppingSheetCategory]);
+
   const categoryOptions = useMemo(
-    () => getUniqueValues(rows.map((item) => item.category)),
-    [rows],
+    () => getUniqueValues(scopedRows.map((item) => item.category)),
+    [scopedRows],
   );
 
   const statusOptions = useMemo(
-    () => getUniqueValues(rows.map((item) => item.status)),
-    [rows],
+    () => getUniqueValues(scopedRows.map((item) => item.status)),
+    [scopedRows],
   );
 
   const tagOptions = useMemo(
-    () => getUniqueValues(rows.flatMap((item) => item.tags)),
-    [rows],
+    () => getUniqueValues(scopedRows.flatMap((item) => item.tags)),
+    [scopedRows],
   );
 
   const filteredRows = useMemo(() => {
-    const next = rows.filter((item) => {
+    const next = scopedRows.filter((item) => {
       if (!matchesSearch(item, search)) {
         return false;
       }
@@ -303,7 +349,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
     });
 
     return sortEntries(next, sortBy);
-  }, [rows, search, categoryFilter, statusFilter, selectedTags, sortBy]);
+  }, [scopedRows, search, categoryFilter, statusFilter, selectedTags, sortBy]);
 
   const visibleTagPool = useMemo(
     () => getUniqueValues(filteredRows.flatMap((item) => item.tags)),
@@ -317,8 +363,8 @@ export default function PersonalKnowledgeSiteUIMockup() {
     selectedTags.length > 0,
   ].filter(Boolean).length;
 
-  const latestUpdated = filteredRows[0]?.updatedAt
-    ? formatDate(filteredRows[0].updatedAt)
+  const latestUpdated = (filteredRows[0] ?? scopedRows[0])?.updatedAt
+    ? formatDate((filteredRows[0] ?? scopedRows[0])!.updatedAt)
     : "--";
 
   const manageableCategories = knowledgeMeta.categories[activeModule] ?? [];
@@ -468,10 +514,17 @@ export default function PersonalKnowledgeSiteUIMockup() {
 
   function openCreateDialog() {
     setActionError("");
+    const initialDraft =
+      activeModule === "shopping" && shoppingSheetCategory
+        ? {
+            ...getEmptyDraft("shopping"),
+            category: shoppingSheetCategory,
+          }
+        : null;
     setEditorState({
       mode: "create",
       moduleId: activeModule,
-      initialDraft: null,
+      initialDraft,
       entry: null,
     });
   }
@@ -517,6 +570,9 @@ export default function PersonalKnowledgeSiteUIMockup() {
     setHighlightedEntryId(result.entry.id);
     setSelectedItem(result.entry);
     setActiveModule(result.entry.module);
+    if (result.entry.module === "shopping") {
+      setShoppingSheetCategory(result.entry.category);
+    }
     setKnowledgeMeta((current) => ({
       ...current,
       categories: {
@@ -608,6 +664,9 @@ export default function PersonalKnowledgeSiteUIMockup() {
     const result = await createCategory(moduleId, name);
     setKnowledgeData(result.data);
     setKnowledgeMeta(result.meta);
+    if (moduleId === "shopping") {
+      setShoppingSheetCategory(name);
+    }
   }
 
   async function handleCreateCategory(name: string) {
@@ -742,7 +801,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
   }
 
   const emptyStateText =
-    rows.length === 0
+    scopedRows.length === 0
       ? t("page.emptyModule")
       : t("page.emptyFiltered");
 
@@ -945,7 +1004,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                 <StatCard
                   title={t("page.visible")}
                   value={filteredRows.length}
-                  hint={t("page.totalRecords", { count: rows.length })}
+                  hint={t("page.totalRecords", { count: scopedRows.length })}
                 />
                 <StatCard
                   title={t("page.tagPool")}
@@ -959,6 +1018,24 @@ export default function PersonalKnowledgeSiteUIMockup() {
                 />
               </div>
             </section>
+
+            {activeModule === "shopping" && shoppingSheetCategories.length > 0 && (
+              <ShoppingSheetTabs
+                categories={shoppingSheetCategories}
+                activeCategory={shoppingSheetCategory}
+                counts={shoppingSheetCounts}
+                isAdmin={isAdmin}
+                title={t("page.shoppingSheetsTitle")}
+                helperText={t("page.shoppingSheetsHint")}
+                addLabel={t("page.shoppingAddSheet")}
+                inputPlaceholder={t("page.shoppingAddSheetPlaceholder")}
+                confirmLabel={t("common.confirm")}
+                cancelLabel={t("common.cancel")}
+                duplicateMessage={t("page.shoppingSheetDuplicate")}
+                onChange={setShoppingSheetCategory}
+                onCreateCategory={(name) => handleCreateCategoryForModule("shopping", name)}
+              />
+            )}
 
             {actionError && (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
@@ -990,6 +1067,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
               activeFilterCount={activeFilterCount}
               onClearFilters={handleClearFilters}
               onClearTagSelection={() => setSelectedTags([])}
+              showCategoryFilter={activeModule !== "shopping"}
             />
 
             <Card className="rounded-[24px] border border-slate-200/80 bg-white/92 shadow-sm backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/88">
@@ -1324,7 +1402,9 @@ export default function PersonalKnowledgeSiteUIMockup() {
             ? "\u4fdd\u5b58\u4fee\u6539"
             : "\u4fdd\u5b58\u5e76\u5199\u5165\u4ed3\u5e93"
         }
-        onAiParse={(rawText, mode) => parseEntryWithAi(editorModuleId, rawText, mode)}
+        onAiParse={(rawText, mode, images) =>
+          parseEntryWithAi(editorModuleId, rawText, mode, images)
+        }
         onCreateCategory={(name) =>
           handleCreateCategoryForModule(editorModuleId, name)
         }

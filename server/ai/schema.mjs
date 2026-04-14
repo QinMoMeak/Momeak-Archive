@@ -46,11 +46,30 @@ const normalizedStringArray = z
     return [];
   });
 
-export const aiParseRequestSchema = z.object({
-  moduleId: z.enum(["offline", "shopping", "websites", "inbox"]),
-  rawText: z.string().trim().min(1, "请先输入原始文本。"),
-  mode: z.enum(["single", "multiple"]).default("single"),
+const aiImageInputSchema = z.object({
+  id: z.string().trim().min(1),
+  name: z.string().trim().min(1),
+  type: z.string().trim().regex(/^image\//, "仅支持图片文件。"),
+  size: z.number().positive().max(6 * 1024 * 1024),
+  dataUrl: z.string().trim().regex(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "图片数据格式无效。"),
 });
+
+export const aiParseRequestSchema = z
+  .object({
+    moduleId: z.enum(["offline", "shopping", "websites", "inbox"]),
+    rawText: z.string().trim().optional().default(""),
+    mode: z.enum(["single", "multiple"]).default("single"),
+    images: z.array(aiImageInputSchema).max(4).optional().default([]),
+  })
+  .superRefine((value, context) => {
+    if (!value.rawText && value.images.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["rawText"],
+        message: "请至少提供文本或图片。",
+      });
+    }
+  });
 
 export const aiModelEntrySchema = z
   .object({
@@ -72,6 +91,10 @@ export const aiModelEntrySchema = z
     rating: nullableNumber,
     platform: nullableTrimmedString,
     price: nullableNumber,
+    quantity: nullableTrimmedString,
+    specification: nullableTrimmedString,
+    storeName: nullableTrimmedString,
+    discountInfo: nullableTrimmedString,
     domain: nullableTrimmedString,
     access: nullableTrimmedString,
     content: nullableTrimmedString,
@@ -110,6 +133,10 @@ function createEntryJsonProperties() {
     rating: { type: ["number", "null"] },
     platform: { type: ["string", "null"] },
     price: { type: ["number", "null"] },
+    quantity: { type: ["string", "null"] },
+    specification: { type: ["string", "null"] },
+    storeName: { type: ["string", "null"] },
+    discountInfo: { type: ["string", "null"] },
     domain: { type: ["string", "null"] },
     access: { type: ["string", "null"] },
     content: { type: ["string", "null"] },
@@ -145,6 +172,10 @@ const entryRequiredFields = [
   "rating",
   "platform",
   "price",
+  "quantity",
+  "specification",
+  "storeName",
+  "discountInfo",
   "domain",
   "access",
   "content",

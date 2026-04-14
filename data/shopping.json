@@ -91,5 +91,29 @@
     "updatedAt": "2026-03-31",
     "platform": "",
     "price": 8
+  },
+  {
+    "id": "shopping-007",
+    "module": "shopping",
+    "name": "纯棉纱布袋香料卤料调料包熬中药煎药袋煲汤煲鱼隔渣茶包过滤袋子",
+    "category": "日用百货",
+    "status": "推荐",
+    "tags": [
+      "厨房用品",
+      "高性价比",
+      "过滤袋",
+      "纱布",
+      "食品级"
+    ],
+    "note": "10个装纯棉纱布过滤袋，实付3.77元免运费，适合煲汤、卤料及中药煎煮。",
+    "source": "订单截图",
+    "createdAt": "2026-04-14",
+    "updatedAt": "2026-04-14",
+    "platform": "拼多多",
+    "price": 3.77,
+    "quantity": "",
+    "specification": "",
+    "storeName": "",
+    "discountInfo": ""
   }
 ]

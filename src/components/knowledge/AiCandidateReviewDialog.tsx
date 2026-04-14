@@ -309,6 +309,41 @@ export function AiCandidateReviewDialog({
                           }
                         />
                       </CandidateField>
+                      <CandidateField label="数量">
+                        <Input
+                          value={candidate.draft.quantity}
+                          onChange={(event) =>
+                            updateDraft(candidate.id, "quantity", event.target.value)
+                          }
+                        />
+                      </CandidateField>
+                      <CandidateField label="规格 / 型号">
+                        <Input
+                          value={candidate.draft.specification}
+                          onChange={(event) =>
+                            updateDraft(candidate.id, "specification", event.target.value)
+                          }
+                        />
+                      </CandidateField>
+                      <CandidateField label="店铺 / 来源店">
+                        <Input
+                          value={candidate.draft.storeName}
+                          onChange={(event) =>
+                            updateDraft(candidate.id, "storeName", event.target.value)
+                          }
+                        />
+                      </CandidateField>
+                      <div className="md:col-span-2">
+                        <CandidateField label="优惠信息">
+                          <Textarea
+                            value={candidate.draft.discountInfo}
+                            onChange={(event) =>
+                              updateDraft(candidate.id, "discountInfo", event.target.value)
+                            }
+                            className="min-h-24"
+                          />
+                        </CandidateField>
+                      </div>
                     </>
                   )}
 

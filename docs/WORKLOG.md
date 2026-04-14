@@ -281,3 +281,86 @@
 验证：
 - `npm run build` 通过。
 - 构建后的 `dist/favicon.svg` 已与 `public/favicon.svg` 一致。
+
+## 2026-04-01 站点标题更新为 Archive
+
+目标：
+- 将浏览器标签页和页面标题从 `momeak-archive` 调整为 `Archive`。
+
+主要改动：
+- 更新 `index.html` 中的 `<title>` 为 `Archive`。
+
+验证：
+- `npm run build` 通过。
+
+## 2026-04-13 物品收集工作表 Tabs
+
+目标：
+- 将 `shopping` 模块的分类切换改成更接近飞书云文档工作表的 Tabs 体验。
+- 让分类切换直接作用于当前表格视图，并支持在 Tabs 区域快速新建分类。
+
+主要改动：
+- 新增 `src/components/knowledge/ShoppingSheetTabs.tsx`，用于渲染分类 Tabs、分类计数和管理员 `+` 新建入口。
+- `src/pages/PersonalKnowledgeSiteUIMockup.tsx` 接入 `shopping` 专属工作表视图：
+  - Tabs 数据来自真实分类配置和现有数据，不在组件内写死。
+  - 当前选中分类会限制表格数据范围，统计卡、空状态、标签池和搜索筛选都随当前工作表更新。
+  - 在 `shopping` 模块新增条目时，默认归入当前激活的工作表分类。
+  - 新建分类成功后立即刷新 Tabs，并自动切换到新分类。
+- `src/components/knowledge/FilterBar.tsx` 增加 `showCategoryFilter`，在 `shopping` 模块下隐藏重复的分类下拉，避免和 Tabs 冲突。
+- 补充中英文文案，兼容现有多语言体系。
+
+验证：
+- `npm run build` 通过。
+
+## 2026-04-13 AI 图片解析接入
+
+目标：
+- 为新增条目的 AI 辅助解析增加图片上传与截图识别能力。
+- 重点支持 `shopping` 模块的商品截图、订单图、评价图和详情页截图。
+- 保持现有单条 / 多条解析协议、候选确认和批量创建流程兼容。
+
+主要改动：
+- 新增 `src/components/knowledge/AiImageUpload.tsx`，支持点击上传、拖拽上传、缩略图预览和删除已选图片。
+- `src/components/knowledge/AiAssistPanel.tsx` 重写为统一的文本 + 图片解析面板，保留单条 / 多条切换和候选确认提示。
+- `src/components/knowledge/QuickAddEntryDialog.tsx` 接入图片状态管理、大小与数量限制，并把图片一起提交到现有 AI 解析入口。
+- 扩展前后端 AI 解析协议，新增图片输入对象，服务端支持把图片与文本一起发给兼容 OpenAI 接口的多模态模型。
+- 重写 `server/ai/client.mjs`、`server/ai/schema.mjs`、`server/ai/prompts/shopping.mjs`、`server/ai/prompts/websites.mjs`，补充图片解析相关 schema 和 prompt。
+- 在 `server/ai/providers.mjs` 中增加模型图片能力元数据，并补充 `qwen` / `qwen3.5-omni-plus-image`。
+- 当前模型不支持图片输入时，服务端会明确报错，提示切换到支持视觉的模型。
+
+验证：
+- `npm run build` 通过。
+- `node --check server/ai/client.mjs` 通过。
+- `node --check server/ai/prompts/shopping.mjs` 通过。
+- `node --check server/ai/prompts/websites.mjs` 通过。
+
+## 2026-04-13 购物截图字段深化
+
+目标：
+- 继续增强购物截图解析后的信息承载能力，让数量、规格、店铺和优惠信息能进入现有表单与详情结构。
+
+主要改动：
+- 扩展 `shopping` 条目与 `QuickAddDraft` 的可选字段：`quantity`、`specification`、`storeName`、`discountInfo`。
+- `src/components/knowledge/QuickAddEntryDialog.tsx` 为购物模块新增对应输入项，支持管理员手动补充或校正截图识别结果。
+- `src/components/knowledge/AiCandidateReviewDialog.tsx` 为购物候选结果确认增加上述字段，便于多条截图解析后逐条修正。
+- `server/knowledge-store.mjs` 接入新字段的本地保存逻辑，确保写入 JSON 后不会丢失。
+- 重写 `src/lib/knowledge.ts` 和 `src/lib/knowledge-detail.ts` 的相关映射逻辑，让搜索、主次信息展示和详情抽屉可以使用这些字段。
+
+验证：
+- `npm run build` 通过。
+
+## 2026-04-13 Blaze 补充 Qwen 图片模型
+- 将 Blaze 服务商模型目录重写为干净版本，补齐 qwen 与 qwen3.5-omni-plus-image。
+- 让购物截图图片解析在 Blaze 场景下也能直接选到支持视觉输入的模型。
+
+## 2026-04-13 Qwen 图片模型端点修正
+- 为需要图片专用端点的模型增加 apiStyle 元信息。
+- AI 客户端按模型切换 chat/completions 与 responses 请求格式，修复 qwen3.5-omni-plus-image 的 400 报错。
+
+## 2026-04-14 Blaze 模型 ID 修正
+- 按 Blaze /api/models 的真实返回重建 provider 模型目录。
+- 将 Blaze 下的 Qwen 解析模型改为真实 id，例如 qwen/qwen3.5-omni-plus。
+
+## 2026-04-14 AI JSON 容错增强
+- 重写 AI 客户端的结构化结果提取逻辑。
+- 支持从代码块、包裹文本和嵌入式 JSON 中提取有效结果，降低模型输出轻微偏离时的失败率。

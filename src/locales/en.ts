@@ -83,6 +83,11 @@
     aiSettingsLoading: "Loading current AI settings...",
     dataSync: "Data sync",
     dataSyncHint: "Import or export ZIP, configure WebDAV, upload or restore backups.",
+    shoppingSheetsTitle: "Sheets",
+    shoppingSheetsHint: "Switch the current table by category, like lightweight worksheets.",
+    shoppingAddSheet: "Add sheet",
+    shoppingAddSheetPlaceholder: "Enter a new category name",
+    shoppingSheetDuplicate: "This category already exists.",
   },
   auth: {
     password: "Password",

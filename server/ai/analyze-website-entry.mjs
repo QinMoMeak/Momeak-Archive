@@ -66,6 +66,7 @@ async function readReaderContexts(candidates) {
 
 export async function analyzeWebsiteEntryWithAi({
   rawText,
+  images = [],
   runtimeConfig,
   availableCategories,
   availableStatuses,
@@ -90,6 +91,8 @@ export async function analyzeWebsiteEntryWithAi({
     const prompt = buildWebsitesPrompt({
       rawText,
       mode,
+      hasImages: images.length > 0,
+      imageCount: images.length,
       extractedDomains: normalized.candidates.map((item) => item.domain),
       availableCategories,
       availableStatuses,
@@ -104,6 +107,7 @@ export async function analyzeWebsiteEntryWithAi({
         schema: aiMultipleModelOutputSchema,
         jsonSchema: aiMultipleModelOutputJsonSchema,
         schemaName: "knowledge_websites_multiple_parse",
+        images,
       },
     );
 
@@ -148,6 +152,8 @@ export async function analyzeWebsiteEntryWithAi({
   const prompt = buildWebsitesPrompt({
     rawText,
     mode,
+    hasImages: images.length > 0,
+    imageCount: images.length,
     extractedDomain: normalized.domain,
     normalizedUrl: normalized.url,
     availableCategories,
@@ -163,6 +169,7 @@ export async function analyzeWebsiteEntryWithAi({
       schema: aiModelOutputSchema,
       jsonSchema: aiModelOutputJsonSchema,
       schemaName: "knowledge_websites_single_parse",
+      images,
     },
   );
 

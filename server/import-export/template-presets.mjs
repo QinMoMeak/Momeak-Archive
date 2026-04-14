@@ -14,7 +14,7 @@ export const moduleLabels = {
 const moduleFallbackCategories = {
   offline: "饭店",
   shopping: "日用百货",
-  websites: "文件工具",
+  websites: "工具网站",
   inbox: "未归类",
 };
 
@@ -58,12 +58,16 @@ const moduleExampleEntries = {
     category: moduleFallbackCategories.shopping,
     status: moduleFallbackStatuses.shopping,
     tags: ["示例", "回购"],
-    note: "可以用来理解价格、平台和标签格式。",
+    note: "可用来理解价格、平台、规格和优惠字段的格式。",
     source: "示例模板",
     createdAt: "2026-04-01",
     updatedAt: "2026-04-01",
     platform: "京东",
     price: 59,
+    quantity: "1",
+    specification: "500ml / 标准装",
+    storeName: "示例旗舰店",
+    discountInfo: "满 99 减 20，实付 59",
   },
   websites: {
     id: "websites-001",
@@ -92,7 +96,8 @@ const moduleExampleEntries = {
     source: "示例模板",
     createdAt: "2026-04-01",
     updatedAt: "2026-04-01",
-    rawContent: "这里可以是一段博客摘录、商品评价、聊天记录或截图说明。",
+    rawContent:
+      "这里可以是一段博客摘录、商品评价、聊天记录或截图说明。",
     rawContentType: "text",
     aiSummary: "一条用于演示待处理结构的示例记录。",
     aiSuggestions: "建议补充来源后，再决定是否转入其他正式模块。",

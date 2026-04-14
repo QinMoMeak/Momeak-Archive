@@ -1,17 +1,21 @@
 import { LoaderCircle, Sparkles, TriangleAlert } from "lucide-react";
 
+import { AiImageUpload } from "@/components/knowledge/AiImageUpload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { AiParseMode, AiSuggestionResult } from "@/types/ai";
+import type { AiInputImage, AiParseMode, AiSuggestionResult } from "@/types/ai";
 import type { ModuleId } from "@/types/knowledge";
 
 type AiAssistPanelProps = {
   moduleId: ModuleId;
   rawText: string;
+  images: AiInputImage[];
   parseMode: AiParseMode;
   onParseModeChange: (mode: AiParseMode) => void;
   onRawTextChange: (value: string) => void;
+  onSelectImages: (files: FileList | File[]) => void;
+  onRemoveImage: (imageId: string) => void;
   onParse: () => void;
   isParsing: boolean;
   error: string;
@@ -54,7 +58,7 @@ function InfoList({
           <Badge
             key={`${title}-${item}`}
             variant={tone === "warning" ? "outline" : "secondary"}
-            className="rounded-full whitespace-normal"
+            className="whitespace-normal rounded-full"
           >
             {item}
           </Badge>
@@ -64,10 +68,22 @@ function InfoList({
   );
 }
 
-function getParsingSteps(moduleId: ModuleId, mode: AiParseMode) {
+function getParsingSteps(moduleId: ModuleId, mode: AiParseMode, hasImages: boolean) {
+  if (hasImages) {
+    if (moduleId === "shopping") {
+      return mode === "multiple"
+        ? ["正在识别截图中的多个商品", "正在生成候选结果"]
+        : ["正在识别截图中的商品信息", "正在回填购物条目字段"];
+    }
+
+    return mode === "multiple"
+      ? ["正在上传图片并拆分多个对象", "正在生成候选结果"]
+      : ["正在识别图片内容", "正在生成结构化结果"];
+  }
+
   if (moduleId === "websites") {
     return mode === "multiple"
-      ? ["正在读取多个网页内容", "正在拆分多个网站并分析用途"]
+      ? ["正在读取多个网站内容", "正在拆分并分析多个网站"]
       : ["正在读取网页内容", "正在分析网站用途"];
   }
 
@@ -78,16 +94,19 @@ function getParsingSteps(moduleId: ModuleId, mode: AiParseMode) {
   }
 
   return mode === "multiple"
-    ? ["正在识别多个对象", "正在生成候选条目"]
-    : ["正在提取结构化字段"];
+    ? ["正在识别多个对象", "正在生成候选结果"]
+    : ["正在提取结构化字段", "正在整理可回填内容"];
 }
 
 export function AiAssistPanel({
   moduleId,
   rawText,
+  images,
   parseMode,
   onParseModeChange,
   onRawTextChange,
+  onSelectImages,
+  onRemoveImage,
   onParse,
   isParsing,
   error,
@@ -100,9 +119,7 @@ export function AiAssistPanel({
     Boolean(singleEntry?.needsCategoryConfirmation) && Boolean(singleEntry?.unmatchedCategory);
   const hasStatusMismatch =
     Boolean(singleEntry?.needsStatusConfirmation) && Boolean(singleEntry?.unmatchedStatus);
-  const parsingSteps = getParsingSteps(moduleId, parseMode);
-  const multipleModeHint =
-    "适合榜单、表格、合集、推荐清单和多项目列表。AI 会先拆成候选结果，再由你确认。";
+  const parsingSteps = getParsingSteps(moduleId, parseMode, images.length > 0);
 
   return (
     <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">
@@ -113,7 +130,7 @@ export function AiAssistPanel({
             AI 辅助解析
           </div>
           <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            粘贴一段原始文本后自动提取可用字段。单条解析会直接回填表单，多条解析会先生成候选结果供你确认。
+            支持文本、截图或两者一起输入。单条解析会直接回填表单，多条解析会先生成候选结果供你确认。
           </p>
         </div>
 
@@ -158,19 +175,27 @@ export function AiAssistPanel({
 
         {parseMode === "multiple" && (
           <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-6 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
-            {multipleModeHint}
+            适合榜单、表格、合集、推荐清单和多项列表。AI 会先拆成候选结果，再由你确认是否批量创建。
           </div>
         )}
 
         <Textarea
           value={rawText}
           onChange={(event) => onRawTextChange(event.target.value)}
-          placeholder="例如：粘贴一段网站合集、红榜商品表、多家餐厅推荐、KTV 歌曲清单、聊天摘录或待整理链接。"
+          placeholder="可粘贴商品清单、订单摘要、购买评价、网站合集、聊天摘录或备注说明。"
           className="min-h-28 bg-white dark:bg-slate-950"
         />
 
+        <AiImageUpload
+          images={images}
+          onSelectFiles={onSelectImages}
+          onRemoveImage={onRemoveImage}
+          disabled={isParsing}
+          helperText="支持商品截图、订单截图、评价截图和详情页截图。可仅上传图片，也可与文本一起解析。"
+        />
+
         <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={onParse} disabled={isParsing || !rawText.trim()}>
+          <Button onClick={onParse} disabled={isParsing || (!rawText.trim() && images.length === 0)}>
             {isParsing ? (
               <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -179,9 +204,11 @@ export function AiAssistPanel({
             {isParsing ? parsingSteps[0] : "AI 解析"}
           </Button>
           <div className="text-xs leading-5 text-slate-500 dark:text-slate-400">
-            {parseMode === "single"
-              ? "单条解析会尽量把整段内容聚合成一条记录。"
-              : "多条解析不会直接静默入库，确认后才会批量创建。"}
+            {images.length > 0
+              ? "上传图片后会结合可见内容与文本上下文一起分析。"
+              : parseMode === "single"
+                ? "单条解析会尽量把整段内容聚合成一条记录。"
+                : "多条解析不会直接入库，确认后才会批量创建。"}
           </div>
         </div>
 
@@ -207,7 +234,7 @@ export function AiAssistPanel({
               <InfoList title="解析提醒" items={result.warnings} tone="warning" />
             )}
             <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
-              AI 已生成 {result.entries.length} 条候选结果。确认后会批量创建，未确认的条目不会写入。
+              AI 已生成 {result.entries.length} 条候选结果。确认后才会批量创建，未保留的条目不会写入。
             </div>
           </div>
         )}
