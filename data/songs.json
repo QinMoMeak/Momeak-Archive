@@ -1,0 +1,65 @@
+[
+  {
+    "id": "songs-001",
+    "module": "songs",
+    "name": "后来",
+    "artist": "刘若英",
+    "album": "我等你",
+    "category": "KTV",
+    "status": "会唱",
+    "tags": [
+      "经典",
+      "女生KTV",
+      "合唱备选"
+    ],
+    "source": "朋友聚会歌单",
+    "note": "副歌上口，适合聚会和 KTV 破冰时点。",
+    "lyricsSnippet": "后来 我总算学会了如何去爱",
+    "mood": "聚会",
+    "language": "中文",
+    "createdAt": "2026-04-19",
+    "updatedAt": "2026-04-19"
+  },
+  {
+    "id": "songs-002",
+    "module": "songs",
+    "name": "夜曲",
+    "artist": "周杰伦",
+    "album": "十一月的萧邦",
+    "category": "怀旧",
+    "status": "常听",
+    "tags": [
+      "深夜循环",
+      "华语",
+      "前奏杀"
+    ],
+    "source": "短视频评论区",
+    "note": "适合深夜独处时听，情绪浓度高。",
+    "lyricsSnippet": "为你弹奏肖邦的夜曲",
+    "mood": "深夜",
+    "language": "中文",
+    "createdAt": "2026-04-19",
+    "updatedAt": "2026-04-19"
+  },
+  {
+    "id": "songs-003",
+    "module": "songs",
+    "name": "Sparkle",
+    "artist": "RADWIMPS",
+    "album": "Your Name.",
+    "category": "影视OST",
+    "status": "收藏",
+    "tags": [
+      "动漫",
+      "OST",
+      "燃"
+    ],
+    "source": "截图整理",
+    "note": "适合做热血感和电影感场景歌单候选。",
+    "lyricsSnippet": "まだこの世界は",
+    "mood": "热血",
+    "language": "日文",
+    "createdAt": "2026-04-19",
+    "updatedAt": "2026-04-19"
+  }
+]

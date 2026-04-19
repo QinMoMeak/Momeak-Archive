@@ -4,6 +4,7 @@ import {
   Globe,
   Inbox,
   FolderTree,
+  Music4,
   LogOut,
   Pencil,
   Plus,
@@ -99,6 +100,7 @@ const moduleIcons = {
   shoppingBag: ShoppingBag,
   globe: Globe,
   inbox: Inbox,
+  music4: Music4,
 } as const;
 const sidebarWidthStorageKey = "personal-kb-sidebar-width";
 const defaultSidebarWidth = 296;
@@ -137,6 +139,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
       shopping: [...moduleDefinitions.shopping.defaultCategories],
       websites: [...moduleDefinitions.websites.defaultCategories],
       inbox: [...moduleDefinitions.inbox.defaultCategories],
+      songs: [...moduleDefinitions.songs.defaultCategories],
     },
   });
   const [activeModule, setActiveModule] = useState<ModuleId>("offline");

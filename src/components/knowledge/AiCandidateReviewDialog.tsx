@@ -368,6 +368,54 @@ export function AiCandidateReviewDialog({
                     </>
                   )}
 
+                  {moduleId === "songs" && (
+                    <>
+                      <CandidateField label="æ­æ / æ¼å±è">
+                        <Input
+                          value={candidate.draft.artist}
+                          onChange={(event) =>
+                            updateDraft(candidate.id, "artist", event.target.value)
+                          }
+                        />
+                      </CandidateField>
+                      <CandidateField label="ä¸è¾">
+                        <Input
+                          value={candidate.draft.album}
+                          onChange={(event) =>
+                            updateDraft(candidate.id, "album", event.target.value)
+                          }
+                        />
+                      </CandidateField>
+                      <CandidateField label="æç»ª / åºæ¯">
+                        <Input
+                          value={candidate.draft.mood}
+                          onChange={(event) =>
+                            updateDraft(candidate.id, "mood", event.target.value)
+                          }
+                        />
+                      </CandidateField>
+                      <CandidateField label="ä¸è¾">
+                        <Input
+                          value={candidate.draft.language}
+                          onChange={(event) =>
+                            updateDraft(candidate.id, "language", event.target.value)
+                          }
+                        />
+                      </CandidateField>
+                      <div className="md:col-span-2">
+                        <CandidateField label="æ­è¯çæ®µ">
+                          <Textarea
+                            value={candidate.draft.lyricsSnippet}
+                            onChange={(event) =>
+                              updateDraft(candidate.id, "lyricsSnippet", event.target.value)
+                            }
+                            className="min-h-24"
+                          />
+                        </CandidateField>
+                      </div>
+                    </>
+                  )}
+
                   {moduleId === "inbox" && (
                     <div className="md:col-span-2">
                       <CandidateField label="原始内容">

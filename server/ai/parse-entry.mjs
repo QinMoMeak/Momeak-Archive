@@ -1,4 +1,4 @@
-import { knowledgeModuleIds, readKnowledgeMeta, readModuleEntries } from "../knowledge-store.mjs";
+﻿import { knowledgeModuleIds, readKnowledgeMeta, readModuleEntries } from "../knowledge-store.mjs";
 import { looksLikeDomain, looksLikeWebsiteHint } from "../reader/url-utils.mjs";
 import { analyzeWebsiteEntryWithAi } from "./analyze-website-entry.mjs";
 import { requestAiStructuredParse } from "./client.mjs";
@@ -9,7 +9,6 @@ import {
   normalizeTags,
   resolveConfiguredField,
 } from "./matchers.mjs";
-import { getModuleAiConfig } from "./module-config.mjs";
 import { modelSupportsImages } from "./providers.mjs";
 import { buildModulePrompt } from "./prompts/index.mjs";
 import { resolveRuntimeAiConfig } from "./resolve-runtime-config.mjs";
@@ -20,6 +19,7 @@ import {
   aiMultipleModelOutputSchema,
   aiParseRequestSchema,
 } from "./schema.mjs";
+import { getModuleAiConfig } from "./module-config.mjs";
 
 const websiteAccessOptions = ["可访问", "部分可访问", "不可访问"];
 
@@ -49,7 +49,7 @@ function buildMarkdownFallback(moduleId, fields) {
   if (moduleId === "shopping") {
     const lines = [
       fields.platform ? `- 平台：${fields.platform}` : "",
-      fields.price ? `- 价格：${fields.price}` : "",
+      fields.price !== null ? `- 价格：${fields.price}` : "",
     ].filter(Boolean);
 
     if (lines.length) {
@@ -79,6 +79,23 @@ function buildMarkdownFallback(moduleId, fields) {
 
     if (fields.aiSuggestions) {
       sections.push("## AI 建议", fields.aiSuggestions);
+    }
+  }
+
+  if (moduleId === "songs") {
+    const lines = [
+      fields.artist ? `- 歌手：${fields.artist}` : "",
+      fields.album ? `- 专辑：${fields.album}` : "",
+      fields.language ? `- 语言：${fields.language}` : "",
+      fields.mood ? `- 情绪 / 场景：${fields.mood}` : "",
+    ].filter(Boolean);
+
+    if (lines.length) {
+      sections.push("## 歌曲信息", ...lines);
+    }
+
+    if (fields.lyricsSnippet) {
+      sections.push("## 歌词片段", `> ${fields.lyricsSnippet.replace(/\n/g, "\n> ")}`);
     }
   }
 
@@ -119,9 +136,7 @@ function resolveSuggestedTargetModule(value) {
 function buildInboxSuggestions(aiResult, suggestedTargetModule, suggestedCategory) {
   const parts = [
     cleanMultilineValue(aiResult.suggestedNextAction),
-    suggestedTargetModule
-      ? `建议后续整理到：${suggestedTargetModule}`
-      : "建议暂时继续留在待处理池",
+    suggestedTargetModule ? `建议后续整理到：${suggestedTargetModule}` : "建议暂时继续留在待处理池",
     suggestedCategory ? `建议分类：${suggestedCategory}` : "",
   ].filter(Boolean);
 
@@ -138,6 +153,17 @@ function createDraft(moduleId, fields) {
     markdownContent: fields.markdownContent,
     source: fields.source,
     location: moduleId === "offline" ? fields.location : "",
+    locationText: "",
+    formattedAddress: "",
+    province: "",
+    city: "",
+    district: "",
+    adcode: "",
+    lng: "",
+    lat: "",
+    locationSource: "",
+    locationAccuracy: "",
+    locationRectangle: "",
     rating: moduleId === "offline" && fields.rating !== null ? String(fields.rating) : "",
     platform: moduleId === "shopping" ? fields.platform : "",
     price: moduleId === "shopping" && fields.price !== null ? String(fields.price) : "",
@@ -157,6 +183,11 @@ function createDraft(moduleId, fields) {
     suggestedCategory: moduleId === "inbox" ? fields.suggestedCategory : "",
     confidence:
       moduleId === "inbox" && fields.confidence !== null ? String(fields.confidence) : "",
+    artist: moduleId === "songs" ? fields.artist : "",
+    album: moduleId === "songs" ? fields.album : "",
+    lyricsSnippet: moduleId === "songs" ? fields.lyricsSnippet : "",
+    mood: moduleId === "songs" ? fields.mood : "",
+    language: moduleId === "songs" ? fields.language : "",
   };
 }
 
@@ -170,9 +201,7 @@ function buildFields(moduleId, rawText, aiResult, overrides = {}) {
   const suggestedTargetModule = cleanInlineValue(overrides.suggestedTargetModule);
   const suggestedCategory = cleanInlineValue(overrides.suggestedCategory);
   const rawContent =
-    moduleId === "inbox"
-      ? cleanMultilineValue(aiResult.rawContent ?? rawText)
-      : "";
+    moduleId === "inbox" ? cleanMultilineValue(aiResult.rawContent ?? rawText) : "";
 
   const fields = {
     name: cleanInlineValue(aiResult.name),
@@ -205,6 +234,11 @@ function buildFields(moduleId, rawText, aiResult, overrides = {}) {
     suggestedTargetModule,
     suggestedCategory,
     confidence: aiResult.confidence ?? null,
+    artist: cleanInlineValue(aiResult.artist),
+    album: cleanInlineValue(aiResult.album),
+    lyricsSnippet: cleanMultilineValue(aiResult.lyricsSnippet),
+    mood: cleanInlineValue(aiResult.mood),
+    language: cleanInlineValue(aiResult.language),
   };
 
   if (moduleId === "inbox" && !fields.note) {
@@ -220,9 +254,7 @@ function buildFields(moduleId, rawText, aiResult, overrides = {}) {
 
 function buildEntryCandidate({
   moduleId,
-  rawText,
   aiResult,
-  runtime,
   categoryMatch,
   statusMatch,
   fields,
@@ -292,10 +324,7 @@ function validateWebsiteFields({
   }
 
   if (!looksLikeWebsiteHint(rawText) && !normalizedUrl && !domain) {
-    appendWarning(
-      warnings,
-      "原始文本里没有明确的网站线索，请至少补充 URL、域名或网站名称。",
-    );
+    appendWarning(warnings, "原始文本里没有明确的网站线索，请至少补充 URL、域名或网站名称。");
     appendMissingField(missingFields, "name");
   }
 
@@ -307,14 +336,7 @@ function validateWebsiteFields({
   return { domain, access };
 }
 
-async function analyzeGenericEntry({
-  moduleId,
-  rawText,
-  images,
-  runtimeConfig,
-  runtime,
-  mode,
-}) {
+async function analyzeGenericEntry({ moduleId, rawText, images, runtimeConfig, runtime, mode }) {
   const prompt = buildModulePrompt(moduleId, {
     rawText,
     mode,
@@ -448,11 +470,19 @@ function finalizeCandidate({
     appendMissingField(result.missingFields, "aiSummary");
   }
 
+  if (moduleId === "songs") {
+    if (!fields.artist) {
+      appendMissingField(result.missingFields, "artist");
+    }
+
+    if (!fields.language) {
+      appendWarning(result.warnings, "未识别到明确语言，可在保存前手动补充。");
+    }
+  }
+
   return buildEntryCandidate({
     moduleId,
-    rawText: sourceRawText,
     aiResult: result,
-    runtime,
     categoryMatch,
     statusMatch,
     fields,
@@ -470,7 +500,7 @@ export async function parseKnowledgeEntryWithAi(bodyInput) {
 
   if (images.length > 0 && !modelSupportsImages(runtimeConfig.provider.id, runtimeConfig.model)) {
     throw new Error(
-      `当前模型 ${runtimeConfig.model} 不支持图片解析，请在 AI 设置中切换到支持视觉输入的模型，例如 qwen 或 qwen3.5-omni-plus-image。`,
+      `当前模型 ${runtimeConfig.model} 不支持图片解析，请在 AI 设置中切换到支持视觉输入的模型，例如 qwen3.5-omni-plus-image。`,
     );
   }
 
@@ -500,9 +530,7 @@ export async function parseKnowledgeEntryWithAi(bodyInput) {
       finalizeCandidate({
         moduleId,
         sourceRawText:
-          moduleId === "inbox"
-            ? cleanMultilineValue(entry.rawContent ?? rawText)
-            : rawText,
+          moduleId === "inbox" ? cleanMultilineValue(entry.rawContent ?? rawText) : rawText,
         aiResult: entry,
         runtime,
         extractedDomain: analyzed.extractedDomains?.[index] ?? "",

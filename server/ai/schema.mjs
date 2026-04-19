@@ -38,8 +38,7 @@ const normalizedStringArray = z
 
     if (typeof value === "string") {
       return value
-        .split(/[,\n，]/)
-        .map((item) => item.trim())
+        .split(/[\uFF0C,\n]/)
         .filter(Boolean);
     }
 
@@ -56,7 +55,7 @@ const aiImageInputSchema = z.object({
 
 export const aiParseRequestSchema = z
   .object({
-    moduleId: z.enum(["offline", "shopping", "websites", "inbox"]),
+    moduleId: z.enum(["offline", "shopping", "websites", "inbox", "songs"]),
     rawText: z.string().trim().optional().default(""),
     mode: z.enum(["single", "multiple"]).default("single"),
     images: z.array(aiImageInputSchema).max(4).optional().default([]),
@@ -108,6 +107,11 @@ export const aiModelEntrySchema = z
     suggestedNextAction: nullableTrimmedString,
     confidence: nullableNumber,
     noteDraft: nullableTrimmedString,
+    artist: nullableTrimmedString,
+    album: nullableTrimmedString,
+    lyricsSnippet: nullableTrimmedString,
+    mood: nullableTrimmedString,
+    language: nullableTrimmedString,
   })
   .strip();
 
@@ -150,6 +154,11 @@ function createEntryJsonProperties() {
     suggestedNextAction: { type: ["string", "null"] },
     confidence: { type: ["number", "null"] },
     noteDraft: { type: ["string", "null"] },
+    artist: { type: ["string", "null"] },
+    album: { type: ["string", "null"] },
+    lyricsSnippet: { type: ["string", "null"] },
+    mood: { type: ["string", "null"] },
+    language: { type: ["string", "null"] },
   };
 }
 
@@ -189,6 +198,11 @@ const entryRequiredFields = [
   "suggestedNextAction",
   "confidence",
   "noteDraft",
+  "artist",
+  "album",
+  "lyricsSnippet",
+  "mood",
+  "language",
 ];
 
 export const aiModelOutputJsonSchema = {

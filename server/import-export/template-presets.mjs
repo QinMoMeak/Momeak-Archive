@@ -9,13 +9,15 @@ export const moduleLabels = {
   shopping: "网购好物",
   websites: "网站收集",
   inbox: "待处理",
+  songs: "歌曲",
 };
 
 const moduleFallbackCategories = {
   offline: "饭店",
   shopping: "日用百货",
-  websites: "工具网站",
+  websites: "文件工具",
   inbox: "未归类",
+  songs: "流行",
 };
 
 const moduleFallbackStatuses = {
@@ -23,6 +25,7 @@ const moduleFallbackStatuses = {
   shopping: "推荐",
   websites: "常用",
   inbox: "未处理",
+  songs: "收藏",
 };
 
 const moduleExampleEntries = {
@@ -96,14 +99,30 @@ const moduleExampleEntries = {
     source: "示例模板",
     createdAt: "2026-04-01",
     updatedAt: "2026-04-01",
-    rawContent:
-      "这里可以是一段博客摘录、商品评价、聊天记录或截图说明。",
+    rawContent: "这里可以是一段博客摘录、商品评价、聊天记录或截图说明。",
     rawContentType: "text",
     aiSummary: "一条用于演示待处理结构的示例记录。",
     aiSuggestions: "建议补充来源后，再决定是否转入其他正式模块。",
     suggestedTargetModule: "inbox",
     suggestedCategory: "待整理",
     confidence: 0.74,
+  },
+  songs: {
+    id: "songs-001",
+    module: "songs",
+    name: "示例歌曲",
+    artist: "示例歌手",
+    album: "示例专辑",
+    category: moduleFallbackCategories.songs,
+    status: moduleFallbackStatuses.songs,
+    tags: ["示例", "歌单候选"],
+    note: "可用于核对歌曲模块的歌手、语言、歌词片段等字段。",
+    source: "示例模板",
+    lyricsSnippet: "这是最有辨识度的一句歌词",
+    mood: "深夜",
+    language: "中文",
+    createdAt: "2026-04-01",
+    updatedAt: "2026-04-01",
   },
 };
 
@@ -121,7 +140,6 @@ const moduleExampleMarkdown = {
 这是一个示例网站条目的长说明。
 
 ## 网站用途
-
 - 说明网站主要解决什么问题
 - 适合什么使用场景
 - 有哪些值得长期记录的特点
@@ -136,6 +154,14 @@ const moduleExampleMarkdown = {
 - 是否值得转入正式模块
 - 还缺哪些来源或背景信息
 - 下一步应该整理什么`,
+  songs: `# 收藏理由
+
+- 这里可以写这首歌为什么值得收录。
+- 适合的场景、情绪、循环时机都可以放在这里。
+
+## 歌词片段
+
+> 这里放最有辨识度的一小段歌词。`,
 };
 
 function pickFirstValue(values, fallback) {
@@ -143,10 +169,7 @@ function pickFirstValue(values, fallback) {
 }
 
 function pickStatuses(moduleId, entries) {
-  const values = Array.from(
-    new Set((entries ?? []).map((entry) => String(entry?.status ?? "").trim()).filter(Boolean)),
-  );
-
+  const values = Array.from(new Set((entries ?? []).map((entry) => String(entry?.status ?? "").trim()).filter(Boolean)));
   return values.length > 0 ? values : [moduleFallbackStatuses[moduleId]];
 }
 
@@ -156,23 +179,12 @@ function clone(value) {
 
 export async function getImportTemplateContext(selectedModules) {
   const [meta, data] = await Promise.all([readKnowledgeMeta(), readKnowledgeData()]);
-  const normalizedModules = Array.from(new Set(selectedModules ?? [])).filter((moduleId) =>
-    knowledgeModuleIds.includes(moduleId),
-  );
+  const normalizedModules = Array.from(new Set(selectedModules ?? [])).filter((moduleId) => knowledgeModuleIds.includes(moduleId));
 
-  const categoriesByModule = Object.fromEntries(
-    normalizedModules.map((moduleId) => [moduleId, meta.categories?.[moduleId] ?? []]),
-  );
-  const statusesByModule = Object.fromEntries(
-    normalizedModules.map((moduleId) => [moduleId, pickStatuses(moduleId, data[moduleId])]),
-  );
+  const categoriesByModule = Object.fromEntries(normalizedModules.map((moduleId) => [moduleId, meta.categories?.[moduleId] ?? []]));
+  const statusesByModule = Object.fromEntries(normalizedModules.map((moduleId) => [moduleId, pickStatuses(moduleId, data[moduleId])]));
 
-  return {
-    meta,
-    data,
-    categoriesByModule,
-    statusesByModule,
-  };
+  return { meta, data, categoriesByModule, statusesByModule };
 }
 
 export async function createEmptyTemplatePreset(selectedModules) {
@@ -186,8 +198,7 @@ export async function createEmptyTemplatePreset(selectedModules) {
 }
 
 export async function createExampleTemplatePreset(selectedModules) {
-  const { meta, categoriesByModule, statusesByModule } =
-    await getImportTemplateContext(selectedModules);
+  const { meta, categoriesByModule, statusesByModule } = await getImportTemplateContext(selectedModules);
   const entriesByModule = {};
   const markdownByModule = {};
 

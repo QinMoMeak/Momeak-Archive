@@ -76,6 +76,12 @@ function getParsingSteps(moduleId: ModuleId, mode: AiParseMode, hasImages: boole
         : ["正在识别截图中的商品信息", "正在回填购物条目字段"];
     }
 
+    if (moduleId === "songs") {
+      return mode === "multiple"
+        ? ["正在拆分歌单截图中的多首歌曲", "正在生成候选歌曲记录"]
+        : ["正在识别截图里的歌曲线索", "正在回填歌曲字段"];
+    }
+
     return mode === "multiple"
       ? ["正在上传图片并拆分多个对象", "正在生成候选结果"]
       : ["正在识别图片内容", "正在生成结构化结果"];
@@ -93,9 +99,49 @@ function getParsingSteps(moduleId: ModuleId, mode: AiParseMode, hasImages: boole
       : ["正在理解原始内容", "正在生成摘要与整理建议"];
   }
 
+  if (moduleId === "songs") {
+    return mode === "multiple"
+      ? ["正在拆分多首歌曲线索", "正在生成候选歌曲记录"]
+      : ["正在提取歌曲名、歌手和场景信息", "正在整理可回填字段"];
+  }
+
   return mode === "multiple"
     ? ["正在识别多个对象", "正在生成候选结果"]
     : ["正在提取结构化字段", "正在整理可回填内容"];
+}
+
+function getInputPlaceholder(moduleId: ModuleId) {
+  if (moduleId === "songs") {
+    return "可粘贴歌词片段、歌名 + 歌手、聊天记录、KTV 清单、评论区描述或歌单文本";
+  }
+
+  return "可粘贴商品清单、订单摘要、购买评价、网站合集、聊天摘录或备注说明";
+}
+
+function getImageHelperText(moduleId: ModuleId) {
+  if (moduleId === "songs") {
+    return "支持歌单截图、音乐播放列表、KTV 点歌记录和短视频配乐截图，也可与文本一起解析。";
+  }
+
+  return "支持商品截图、订单截图、评价截图和详情页截图。可仅上传图片，也可与文本一起解析。";
+}
+
+function getParseHint(moduleId: ModuleId, parseMode: AiParseMode, hasImages: boolean) {
+  if (hasImages) {
+    return moduleId === "songs"
+      ? "上传图片后会结合可见歌名、歌手、歌词和上下文一起分析。"
+      : "上传图片后会结合可见内容与文本上下文一起分析。";
+  }
+
+  if (parseMode === "multiple") {
+    return moduleId === "songs"
+      ? "多条解析适合歌单、榜单和截图合集，不会直接入库，确认后才会批量创建。"
+      : "多条解析不会直接入库，确认后才会批量创建。";
+  }
+
+  return moduleId === "songs"
+    ? "单条解析会尽量把输入整理成一条歌曲记录，适合歌词片段或单首歌线索。"
+    : "单条解析会尽量把整段内容聚合成一条记录。";
 }
 
 export function AiAssistPanel({
@@ -182,7 +228,7 @@ export function AiAssistPanel({
         <Textarea
           value={rawText}
           onChange={(event) => onRawTextChange(event.target.value)}
-          placeholder="可粘贴商品清单、订单摘要、购买评价、网站合集、聊天摘录或备注说明。"
+          placeholder={getInputPlaceholder(moduleId)}
           className="min-h-28 bg-white dark:bg-slate-950"
         />
 
@@ -191,7 +237,7 @@ export function AiAssistPanel({
           onSelectFiles={onSelectImages}
           onRemoveImage={onRemoveImage}
           disabled={isParsing}
-          helperText="支持商品截图、订单截图、评价截图和详情页截图。可仅上传图片，也可与文本一起解析。"
+          helperText={getImageHelperText(moduleId)}
         />
 
         <div className="flex flex-wrap items-center gap-3">
@@ -204,11 +250,7 @@ export function AiAssistPanel({
             {isParsing ? parsingSteps[0] : "AI 解析"}
           </Button>
           <div className="text-xs leading-5 text-slate-500 dark:text-slate-400">
-            {images.length > 0
-              ? "上传图片后会结合可见内容与文本上下文一起分析。"
-              : parseMode === "single"
-                ? "单条解析会尽量把整段内容聚合成一条记录。"
-                : "多条解析不会直接入库，确认后才会批量创建。"}
+            {getParseHint(moduleId, parseMode, images.length > 0)}
           </div>
         </div>
 

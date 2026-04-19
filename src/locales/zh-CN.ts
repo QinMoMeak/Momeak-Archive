@@ -1,4 +1,4 @@
-﻿export const zhCN = {
+export const zhCN = {
   common: {
     cancel: "取消",
     save: "保存",
@@ -51,6 +51,12 @@
       summary: "把还没来得及整理的东西先放进来，后续再分析、转移或归档。",
       headers: ["标题", "分类", "原始内容摘要", "AI 摘要", "状态", "标签"],
     },
+    songs: {
+      label: "歌曲",
+      description: "KTV 必点、喜欢的歌、待听歌曲和各种场景歌单候选",
+      summary: "把歌词片段、截图、聊天和歌单里的歌曲线索收进长期可回查的收藏模块。",
+      headers: ["歌曲名", "分类", "歌手", "语言", "状态", "标签"],
+    },
   },
   page: {
     brandTitle: "个人知识收集站",
@@ -98,7 +104,8 @@
     defaultPasswordHint: "本地未配置 KNOWLEDGE_ADMIN_PASSWORD，当前使用默认密码 admin123。建议尽快在 .env.local 中覆盖。",
     verifying: "验证中...",
     enterAdminMode: "进入编辑模式",
-  },  filter: {
+  },
+  filter: {
     search: "搜索",
     searchPlaceholder: "搜索名称、标签、备注、来源...",
     category: "分类",
@@ -153,4 +160,3 @@
     high: "高",
   },
 } as const;
-

@@ -1,4 +1,4 @@
-﻿export const en = {
+export const en = {
   common: {
     cancel: "Cancel",
     save: "Save",
@@ -51,6 +51,12 @@
       summary: "Capture first, structure later. Analyze, move, or archive it when you're ready.",
       headers: ["Title", "Category", "Raw content", "AI summary", "Status", "Tags"],
     },
+    songs: {
+      label: "Songs",
+      description: "KTV staples, favorites, listen-later picks, and playlist candidates",
+      summary: "Turn lyrics snippets, screenshots, chats, and playlist fragments into a long-term song archive.",
+      headers: ["Song", "Category", "Artist", "Language", "Status", "Tags"],
+    },
   },
   page: {
     brandTitle: "Personal Knowledge Archive",
@@ -98,7 +104,8 @@
     defaultPasswordHint: "KNOWLEDGE_ADMIN_PASSWORD is not configured locally. The current default password is admin123. Override it in .env.local as soon as possible.",
     verifying: "Verifying...",
     enterAdminMode: "Enter edit mode",
-  },  filter: {
+  },
+  filter: {
     search: "Search",
     searchPlaceholder: "Search name, tag, note, source...",
     category: "Category",
@@ -153,4 +160,3 @@
     high: "High",
   },
 } as const;
-

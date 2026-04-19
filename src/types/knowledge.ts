@@ -1,6 +1,6 @@
-export type ModuleId = "offline" | "shopping" | "websites" | "inbox";
+export type ModuleId = "offline" | "shopping" | "websites" | "inbox" | "songs";
 
-export type ModuleIconKey = "store" | "shoppingBag" | "globe" | "inbox";
+export type ModuleIconKey = "store" | "shoppingBag" | "globe" | "inbox" | "music4";
 
 export type SortOptionId =
   | "created-desc"
@@ -74,17 +74,28 @@ export type InboxEntry = EntryBase & {
   confidence: number | null;
 };
 
+export type SongEntry = EntryBase & {
+  module: "songs";
+  artist: string;
+  album?: string;
+  lyricsSnippet?: string;
+  mood?: string;
+  language?: string;
+};
+
 export type KnowledgeEntry =
   | OfflineEntry
   | ShoppingEntry
   | WebsiteEntry
-  | InboxEntry;
+  | InboxEntry
+  | SongEntry;
 
 export type KnowledgeData = {
   offline: OfflineEntry[];
   shopping: ShoppingEntry[];
   websites: WebsiteEntry[];
   inbox: InboxEntry[];
+  songs: SongEntry[];
 };
 
 export type KnowledgeMeta = {
@@ -147,6 +158,11 @@ export type QuickAddDraft = {
   suggestedTargetModule: string;
   suggestedCategory: string;
   confidence: string;
+  artist: string;
+  album: string;
+  lyricsSnippet: string;
+  mood: string;
+  language: string;
 };
 
 export type CreateKnowledgeEntryPayload = {

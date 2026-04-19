@@ -615,6 +615,65 @@ export function QuickAddEntryDialog(props: QuickAddEntryDialogProps) {
                 />
               </div>
 
+              {moduleId === "songs" && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {renderFieldLabel("\u6b4c\u624b / \u6f14\u5531\u8005", "artist")}
+                    </label>
+                    <Input
+                      value={draft.artist}
+                      onChange={(event) => updateDraft("artist", event.target.value)}
+                      placeholder="\u4f8b\u5982\uff1a\u5468\u6770\u4f26 / Taylor Swift / RADWIMPS"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {renderFieldLabel("\u4e13\u8f91", "album")}
+                    </label>
+                    <Input
+                      value={draft.album}
+                      onChange={(event) => updateDraft("album", event.target.value)}
+                      placeholder="\u53ef\u9009\uff0c\u4f8b\u5982\uff1a\u53f6\u60e0\u7f8e / 1989"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {renderFieldLabel("\u60c5\u7eea / \u573a\u666f", "mood")}
+                    </label>
+                    <Input
+                      value={draft.mood}
+                      onChange={(event) => updateDraft("mood", event.target.value)}
+                      placeholder="\u4f8b\u5982\uff1a\u4e2d\u6587 / \u82f1\u6587 / \u65e5\u6587 / \u7ca4\u8bed"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {renderFieldLabel("\u8bed\u8a00", "language")}
+                    </label>
+                    <Input
+                      value={draft.language}
+                      onChange={(event) => updateDraft("language", event.target.value)}
+                      placeholder="\u4f8b\u5982\uff1a\u4e2d\u6587 / \u82f1\u6587 / \u65e5\u6587 / \u7ca4\u8bed"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {renderFieldLabel("\u6b4c\u8bcd\u7247\u6bb5", "lyricsSnippet")}
+                    </label>
+                    <Textarea
+                      value={draft.lyricsSnippet}
+                      onChange={(event) => updateDraft("lyricsSnippet", event.target.value)}
+                      placeholder="\u53ef\u9009\uff0c\u4fdd\u7559\u6700\u6709\u8fa8\u8bc6\u5ea6\u7684\u4e00\u5c0f\u6bb5\u6b4c\u8bcd\u6216\u8bb0\u5fc6\u70b9"
+                      className="min-h-28"
+                    />
+                    <div className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                      \u9002\u5408\u8bb0\u5f55\u4ece\u804a\u5929\u3001\u8bc4\u8bba\u533a\u3001\u622a\u56fe\u6216\u77ed\u89c6\u9891\u91cc\u62c6\u4e0b\u6765\u7684\u6b4c\u8bcd\u7ebf\u7d22\uff0c\u4e0d\u9700\u8981\u8865\u5168\u6574\u9996\u6b4c\u8bcd\u3002
+                    </div>
+                  </div>
+                </>
+              )}
+
               {isInbox && (
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-200">

@@ -11,12 +11,13 @@ const dataDir = path.join(repoRoot, "data");
 const contentDir = path.join(repoRoot, "content");
 const taxonomyFile = path.join(dataDir, "taxonomy.json");
 const minIdWidth = 3;
-const moduleIds = ["offline", "shopping", "websites", "inbox"];
+const moduleIds = ["offline", "shopping", "websites", "inbox", "songs"];
 const dataFiles = {
   offline: path.join(dataDir, "offline.json"),
   shopping: path.join(dataDir, "shopping.json"),
   websites: path.join(dataDir, "websites.json"),
   inbox: path.join(dataDir, "inbox.json"),
+  songs: path.join(dataDir, "songs.json"),
 };
 
 const inboxDefaultCategory = "未归类";
@@ -42,6 +43,7 @@ function cleanInlineText(value) {
 function cleanMultilineText(value) {
   return String(value ?? "")
     .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .split("\n")
     .map((line) => line.replace(/[ \t]+$/g, ""))
     .join("\n")
@@ -52,7 +54,7 @@ function parseTagsInput(input) {
   const seen = new Set();
 
   return String(input ?? "")
-    .split(/[,\n，]/)
+    .split(/[\n,?]/)
     .map((tag) => cleanInlineText(tag))
     .filter((tag) => {
       if (!tag) {
@@ -226,9 +228,7 @@ async function ensureCategoryExists(moduleId, categoryName) {
   const normalizedCategory = categoryName.toLocaleLowerCase();
 
   if (
-    currentCategories.some(
-      (category) => category.toLocaleLowerCase() === normalizedCategory,
-    )
+    currentCategories.some((category) => category.toLocaleLowerCase() === normalizedCategory)
   ) {
     return;
   }
@@ -238,7 +238,7 @@ async function ensureCategoryExists(moduleId, categoryName) {
 }
 
 function getNextEntryId(moduleId, entries) {
-  const pattern = new RegExp(`^${moduleId}-(\\d+)$`);
+  const pattern = new RegExp(`^${moduleId}-(\d+)$`);
   const currentMax = entries.reduce((maxValue, entry) => {
     const match = pattern.exec(entry.id);
 
@@ -295,6 +295,11 @@ function normalizeDraft(moduleId, draft) {
     suggestedTargetModule: cleanInlineText(draft.suggestedTargetModule),
     suggestedCategory: cleanInlineText(draft.suggestedCategory),
     confidence: clampConfidence(draft.confidence),
+    artist: cleanInlineText(draft.artist),
+    album: cleanInlineText(draft.album),
+    lyricsSnippet: cleanMultilineText(draft.lyricsSnippet),
+    mood: cleanInlineText(draft.mood),
+    language: cleanInlineText(draft.language),
   };
 
   if (moduleId === "inbox") {
@@ -305,8 +310,7 @@ function normalizeDraft(moduleId, draft) {
     normalized.name = normalized.name || inferInboxTitle(normalized.rawContent) || "未命名待处理条目";
     normalized.category = normalized.category || inboxDefaultCategory;
     normalized.status = normalized.status || inboxDefaultStatus;
-    normalized.rawContentType =
-      normalized.rawContentType || inferRawContentType(normalized.rawContent);
+    normalized.rawContentType = normalized.rawContentType || inferRawContentType(normalized.rawContent);
   } else {
     if (!normalized.name) {
       throw new Error("名称不能为空。");
@@ -325,9 +329,7 @@ function normalizeDraft(moduleId, draft) {
     normalized.location =
       normalized.locationText ||
       normalized.formattedAddress ||
-      [normalized.city, normalized.district, normalized.province]
-        .filter(Boolean)
-        .join(" ");
+      [normalized.city, normalized.district, normalized.province].filter(Boolean).join(" ");
   }
 
   if (moduleId === "offline" && !normalized.location) {
@@ -347,7 +349,7 @@ function buildEntry(moduleId, draft, entryId) {
     draft.note ||
     draft.aiSummary ||
     getMarkdownSummary(draft.markdownContent) ||
-    (moduleId === "inbox" ? getTextSummary(draft.rawContent) : "");
+    (moduleId === "inbox" ? getTextSummary(draft.rawContent) : draft.lyricsSnippet || "");
 
   const baseEntry = {
     id: entryId,
@@ -406,6 +408,18 @@ function buildEntry(moduleId, draft, entryId) {
     };
   }
 
+  if (moduleId === "songs") {
+    return {
+      ...baseEntry,
+      module: "songs",
+      artist: draft.artist,
+      album: draft.album,
+      lyricsSnippet: draft.lyricsSnippet,
+      mood: draft.mood,
+      language: draft.language,
+    };
+  }
+
   return {
     ...baseEntry,
     module: "inbox",
@@ -459,9 +473,7 @@ export async function replaceModuleMarkdownContent(moduleId, markdownByEntryId) 
 
   await fs.rm(moduleDir, { recursive: true, force: true });
 
-  const entries = Object.entries(markdownByEntryId).filter(([, content]) =>
-    cleanMultilineText(content).length > 0,
-  );
+  const entries = Object.entries(markdownByEntryId).filter(([, content]) => cleanMultilineText(content).length > 0);
 
   if (entries.length === 0) {
     return;
@@ -471,11 +483,7 @@ export async function replaceModuleMarkdownContent(moduleId, markdownByEntryId) 
 
   await Promise.all(
     entries.map(([entryId, content]) =>
-      fs.writeFile(
-        getContentFilePath(moduleId, entryId),
-        `${cleanMultilineText(content)}\n`,
-        "utf8",
-      ),
+      fs.writeFile(getContentFilePath(moduleId, entryId), `${cleanMultilineText(content)}\n`, "utf8"),
     ),
   );
 }
@@ -527,10 +535,7 @@ export async function createKnowledgeEntriesBatch(moduleId, draftInputs) {
       await ensureCategoryExists(moduleId, entry.category);
 
       if (normalizedDraft.markdownContent) {
-        markdownWrites.push({
-          entryId,
-          content: normalizedDraft.markdownContent,
-        });
+        markdownWrites.push({ entryId, content: normalizedDraft.markdownContent });
       }
     } catch (error) {
       failures.push({
@@ -595,9 +600,7 @@ export async function updateKnowledgeEntry(moduleId, entryId, draftInput) {
   return {
     entry: updatedEntry,
     data: await readKnowledgeData(),
-    markdownPath: normalizedDraft.markdownContent
-      ? getPublicMarkdownPath(moduleId, entryId)
-      : null,
+    markdownPath: normalizedDraft.markdownContent ? getPublicMarkdownPath(moduleId, entryId) : null,
   };
 }
 
@@ -634,10 +637,7 @@ export async function createCategory(moduleId, nameInput) {
   meta.categories[moduleId] = [...categories, name];
   await writeKnowledgeMeta(meta);
 
-  return {
-    data: await readKnowledgeData(),
-    meta,
-  };
+  return { data: await readKnowledgeData(), meta };
 }
 
 export async function renameCategory(moduleId, oldNameInput, newNameInput) {
@@ -657,28 +657,17 @@ export async function renameCategory(moduleId, oldNameInput, newNameInput) {
   }
 
   ensureUniqueCategory(categories, newName, oldName);
-  meta.categories[moduleId] = categories.map((category) =>
-    category === oldName ? newName : category,
-  );
+  meta.categories[moduleId] = categories.map((category) => (category === oldName ? newName : category));
   await writeKnowledgeMeta(meta);
 
   const entries = await readModuleEntries(moduleId);
-  const nextEntries = entries.map((entry) =>
-    entry.category === oldName ? { ...entry, category: newName } : entry,
-  );
+  const nextEntries = entries.map((entry) => (entry.category === oldName ? { ...entry, category: newName } : entry));
   await writeJsonFile(dataFiles[moduleId], nextEntries);
 
-  return {
-    data: await readKnowledgeData(),
-    meta,
-  };
+  return { data: await readKnowledgeData(), meta };
 }
 
-export async function deleteCategory(
-  moduleId,
-  nameInput,
-  replacementNameInput = "",
-) {
+export async function deleteCategory(moduleId, nameInput, replacementNameInput = "") {
   assertModuleId(moduleId);
   const name = cleanInlineText(nameInput);
   const replacementName = cleanInlineText(replacementNameInput);
@@ -710,17 +699,12 @@ export async function deleteCategory(
       throw new Error("替换分类不存在。");
     }
 
-    const nextEntries = entries.map((entry) =>
-      entry.category === name ? { ...entry, category: replacementName } : entry,
-    );
+    const nextEntries = entries.map((entry) => (entry.category === name ? { ...entry, category: replacementName } : entry));
     await writeJsonFile(dataFiles[moduleId], nextEntries);
   }
 
   meta.categories[moduleId] = categories.filter((category) => category !== name);
   await writeKnowledgeMeta(meta);
 
-  return {
-    data: await readKnowledgeData(),
-    meta,
-  };
+  return { data: await readKnowledgeData(), meta };
 }

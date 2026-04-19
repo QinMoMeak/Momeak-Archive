@@ -35,7 +35,7 @@ export function dedupeTags(tags: string[]) {
 }
 
 export function parseTagsInput(input: string) {
-  return dedupeTags(input.split(/[,\uFF0C]/));
+  return dedupeTags(input.split(/[,，]/));
 }
 
 export function getUniqueValues(values: string[]) {
@@ -64,6 +64,8 @@ export function getPrimaryMeta(entry: KnowledgeEntry) {
       return entry.domain;
     case "inbox":
       return getExcerpt(entry.rawContent) || "暂无原始内容";
+    case "songs":
+      return entry.artist || entry.album || "未填写";
   }
 }
 
@@ -77,6 +79,8 @@ export function getSecondaryMeta(entry: KnowledgeEntry) {
       return entry.access;
     case "inbox":
       return entry.aiSummary || entry.rawContentType || "待分析";
+    case "songs":
+      return entry.language || entry.mood || entry.album || "未填写";
   }
 }
 
@@ -202,6 +206,11 @@ export function matchesSearch(entry: KnowledgeEntry, search: string) {
     "province" in entry ? (entry.province ?? "") : "",
     "city" in entry ? (entry.city ?? "") : "",
     "district" in entry ? (entry.district ?? "") : "",
+    "artist" in entry ? (entry.artist ?? "") : "",
+    "album" in entry ? (entry.album ?? "") : "",
+    "lyricsSnippet" in entry ? (entry.lyricsSnippet ?? "") : "",
+    "mood" in entry ? (entry.mood ?? "") : "",
+    "language" in entry ? (entry.language ?? "") : "",
   ]
     .join(" ")
     .toLocaleLowerCase();
@@ -226,10 +235,7 @@ export function toggleTag(tags: string[], target: string) {
     : [...tags, target];
 }
 
-export function createDraftFromEntry(
-  entry: KnowledgeEntry,
-  markdownContent = "",
-): QuickAddDraft {
+export function createDraftFromEntry(entry: KnowledgeEntry, markdownContent = ""): QuickAddDraft {
   return {
     name: entry.name,
     category: entry.category,
@@ -245,10 +251,8 @@ export function createDraftFromEntry(
     city: entry.module === "offline" ? entry.city ?? "" : "",
     district: entry.module === "offline" ? entry.district ?? "" : "",
     adcode: entry.module === "offline" ? entry.adcode ?? "" : "",
-    lng:
-      entry.module === "offline" && typeof entry.lng === "number" ? String(entry.lng) : "",
-    lat:
-      entry.module === "offline" && typeof entry.lat === "number" ? String(entry.lat) : "",
+    lng: entry.module === "offline" && typeof entry.lng === "number" ? String(entry.lng) : "",
+    lat: entry.module === "offline" && typeof entry.lat === "number" ? String(entry.lat) : "",
     locationSource: entry.module === "offline" ? entry.locationSource ?? "" : "",
     locationAccuracy: entry.module === "offline" ? entry.locationAccuracy ?? "" : "",
     locationRectangle: entry.module === "offline" ? entry.locationRectangle ?? "" : "",
@@ -269,8 +273,12 @@ export function createDraftFromEntry(
     aiSuggestions: entry.module === "inbox" ? entry.aiSuggestions : "",
     suggestedTargetModule: entry.module === "inbox" ? entry.suggestedTargetModule : "",
     suggestedCategory: entry.module === "inbox" ? entry.suggestedCategory : "",
-    confidence:
-      entry.module === "inbox" && entry.confidence !== null ? String(entry.confidence) : "",
+    confidence: entry.module === "inbox" && entry.confidence !== null ? String(entry.confidence) : "",
+    artist: entry.module === "songs" ? entry.artist : "",
+    album: entry.module === "songs" ? entry.album ?? "" : "",
+    lyricsSnippet: entry.module === "songs" ? entry.lyricsSnippet ?? "" : "",
+    mood: entry.module === "songs" ? entry.mood ?? "" : "",
+    language: entry.module === "songs" ? entry.language ?? "" : "",
   };
 }
 
@@ -315,6 +323,11 @@ export function getEmptyDraft(moduleId: ModuleId): QuickAddDraft {
     suggestedTargetModule: "",
     suggestedCategory: "",
     confidence: "",
+    artist: "",
+    album: "",
+    lyricsSnippet: "",
+    mood: "",
+    language: "",
   };
 }
 
@@ -322,18 +335,13 @@ function hasDraftValue(value: string) {
   return value.trim().length > 0;
 }
 
-export function mergeDraftWithAiResult(
-  current: QuickAddDraft,
-  result: AiSuggestionEntry,
-): QuickAddDraft {
+export function mergeDraftWithAiResult(current: QuickAddDraft, result: AiSuggestionEntry): QuickAddDraft {
   const nextDraft: QuickAddDraft = { ...current };
   const nextTags = result.draft.tags
     ? getUniqueValues([...parseTagsInput(current.tags), ...parseTagsInput(result.draft.tags)])
     : parseTagsInput(current.tags);
 
-  for (const [key, rawValue] of Object.entries(result.draft) as Array<
-    [keyof QuickAddDraft, string]
-  >) {
+  for (const [key, rawValue] of Object.entries(result.draft) as Array<[keyof QuickAddDraft, string]>) {
     if (key === "tags") {
       continue;
     }
@@ -352,9 +360,6 @@ export function mergeDraftWithAiResult(
   return nextDraft;
 }
 
-export function createDraftFromAiCandidate(
-  moduleId: ModuleId,
-  result: AiSuggestionEntry,
-): QuickAddDraft {
+export function createDraftFromAiCandidate(moduleId: ModuleId, result: AiSuggestionEntry): QuickAddDraft {
   return mergeDraftWithAiResult(getEmptyDraft(moduleId), result);
 }
