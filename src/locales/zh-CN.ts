@@ -95,6 +95,16 @@ export const zhCN = {
     shoppingAddSheetPlaceholder: "输入新分类名称",
     shoppingSheetDuplicate: "分类名称已存在，请换一个。",
   },
+  pagination: {
+    previous: "\u4e0a\u4e00\u9875",
+    next: "\u4e0b\u4e00\u9875",
+    firstPage: "\u9996\u9875",
+    lastPage: "\u672b\u9875",
+    pageStatus: "\u7b2c {page} \u9875\uff0c\u5171 {totalPages} \u9875",
+    range: "\u7b2c {start}-{end} \u6761\uff0c\u5171 {total} \u6761",
+    perPage: "\u6bcf\u9875",
+    perPageOption: "{count} \u6761 / \u9875",
+  },
   auth: {
     password: "密码",
     passwordPlaceholder: "输入管理员密码",

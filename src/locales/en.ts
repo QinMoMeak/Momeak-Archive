@@ -95,6 +95,16 @@ export const en = {
     shoppingAddSheetPlaceholder: "Enter a new category name",
     shoppingSheetDuplicate: "This category already exists.",
   },
+  pagination: {
+    previous: "Previous",
+    next: "Next",
+    firstPage: "First page",
+    lastPage: "Last page",
+    pageStatus: "Page {page} of {totalPages}",
+    range: "Items {start}-{end} of {total}",
+    perPage: "Per page",
+    perPageOption: "{count} / page",
+  },
   auth: {
     password: "Password",
     passwordPlaceholder: "Enter admin password",

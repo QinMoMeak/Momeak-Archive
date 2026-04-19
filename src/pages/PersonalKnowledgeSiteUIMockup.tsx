@@ -17,6 +17,7 @@ import {
 import { AdminAccessDialog } from "@/components/knowledge/AdminAccessDialog";
 import { CategoryManagerDialog } from "@/components/knowledge/CategoryManagerDialog";
 import { FilterBar } from "@/components/knowledge/FilterBar";
+import { PaginationBar } from "@/components/knowledge/PaginationBar";
 import { KnowledgeDetailDrawer } from "@/components/knowledge/KnowledgeDetailDrawer";
 import { QuickAddEntryDialog } from "@/components/knowledge/QuickAddEntryDialog";
 import { ShoppingSheetTabs } from "@/components/knowledge/ShoppingSheetTabs";
@@ -94,6 +95,7 @@ import type {
   RemoteBackupFile,
 } from "@/types/data-sync";
 import { useI18n } from "@/providers/I18nProvider";
+import { usePagination } from "@/hooks/usePagination";
 
 const moduleIcons = {
   store: Store,
@@ -354,6 +356,34 @@ export default function PersonalKnowledgeSiteUIMockup() {
     return sortEntries(next, sortBy);
   }, [scopedRows, search, categoryFilter, statusFilter, selectedTags, sortBy]);
 
+  const pagination = usePagination({
+    items: filteredRows,
+    initialPageSize: 10,
+    pageSizeOptions: [10, 20, 50],
+    resetKey: [
+      activeModule,
+      shoppingSheetCategory,
+      search,
+      categoryFilter,
+      statusFilter,
+      selectedTags.join("|"),
+      sortBy,
+    ].join("::"),
+  });
+
+  const paginatedRows = pagination.paginatedItems;
+
+  useEffect(() => {
+    if (!selectedItem || selectedItem.module !== activeModule) {
+      return;
+    }
+
+    if (!paginatedRows.some((item) => item.id === selectedItem.id)) {
+      setSelectedItem(null);
+    }
+  }, [activeModule, paginatedRows, selectedItem]);
+
+
   const visibleTagPool = useMemo(
     () => getUniqueValues(filteredRows.flatMap((item) => item.tags)),
     [filteredRows],
@@ -570,6 +600,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
         : await createKnowledgeEntry(editorState.moduleId, draft);
 
     setKnowledgeData(result.data);
+    pagination.resetPage();
     setHighlightedEntryId(result.entry.id);
     setSelectedItem(result.entry);
     setActiveModule(result.entry.module);
@@ -597,8 +628,9 @@ export default function PersonalKnowledgeSiteUIMockup() {
     setActionError("");
     const result = await createKnowledgeEntriesBatch(editorState.moduleId, drafts);
     setKnowledgeData(result.data);
+    pagination.resetPage();
 
-    if (result.createdEntries.length > 0) {
+if (result.createdEntries.length > 0) {
       const firstEntry = result.createdEntries[0];
       setHighlightedEntryId(firstEntry.id);
       setSelectedItem(firstEntry);
@@ -1088,7 +1120,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 md:hidden">
-                  {filteredRows.map((item) => {
+                  {paginatedRows.map((item) => {
                     const isHighlighted = highlightedEntryId === item.id;
 
                     return (
@@ -1199,7 +1231,7 @@ export default function PersonalKnowledgeSiteUIMockup() {
                     </div>
 
                     <div className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-950">
-                      {filteredRows.map((item) => {
+                      {paginatedRows.map((item) => {
                         const isHighlighted = highlightedEntryId === item.id;
 
                         return (
@@ -1307,6 +1339,20 @@ export default function PersonalKnowledgeSiteUIMockup() {
                     </div>
                   </div>
                 </div>
+
+                <PaginationBar
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  totalItems={pagination.totalItems}
+                  startIndex={pagination.startIndex}
+                  endIndex={pagination.endIndex}
+                  pageSize={pagination.pageSize}
+                  pageSizeOptions={pagination.pageSizeOptions}
+                  canGoPrevious={pagination.canGoPrevious}
+                  canGoNext={pagination.canGoNext}
+                  onPageChange={pagination.setCurrentPage}
+                  onPageSizeChange={pagination.setPageSize}
+                />
 
                 {filteredRows.length === 0 && (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-12 text-center dark:border-slate-800 dark:bg-slate-900/60">
