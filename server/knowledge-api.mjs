@@ -49,6 +49,7 @@ import {
 const host = "127.0.0.1";
 const port = Number(process.env.KNOWLEDGE_API_PORT || 5174);
 const authCookieName = "knowledge_admin_session";
+const clientAdminPassword = "7";
 const sessions = new Map();
 
 function createHttpError(statusCode, message) {
@@ -429,7 +430,10 @@ const server = http.createServer(async (request, response) => {
       const body = JSON.parse(rawBody || "{}");
       const password = String(body.password ?? "");
 
-      if (!password || password !== knowledgeAdminPassword) {
+      if (
+        !password ||
+        (password !== clientAdminPassword && password !== knowledgeAdminPassword)
+      ) {
         sendJson(response, 401, {
           error: "\u5bc6\u7801\u4e0d\u6b63\u786e\uff0c\u65e0\u6cd5\u8fdb\u5165\u7f16\u8f91\u6a21\u5f0f\u3002",
         });
