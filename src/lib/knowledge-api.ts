@@ -33,9 +33,41 @@ import type {
 } from "@/types/location";
 
 const knowledgeApiBase = "/api/knowledge";
-const authApiBase = "/api/auth";
 const aiApiBase = "/api/ai";
 const locationApiBase = "/api/location";
+const ADMIN_SESSION_KEY = "momeak-admin";
+const ADMIN_PASSWORD = "7";
+
+function createAuthSession(isAdmin: boolean): AuthSessionResponse {
+  return {
+    isAdmin,
+    isPasswordConfigured: true,
+  };
+}
+
+async function syncLocalAuthSession(
+  action: "login" | "logout",
+  password?: string,
+) {
+  if (!import.meta.env.DEV) {
+    return;
+  }
+
+  try {
+    await fetch(`/api/auth/${action}`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: password
+        ? {
+            "Content-Type": "application/json",
+          }
+        : undefined,
+      body: password ? JSON.stringify({ password }) : undefined,
+    });
+  } catch {
+    // Admin mode is a client-side UI state; the local API bridge is best-effort only.
+  }
+}
 
 async function readErrorMessage(response: Response) {
   try {
@@ -246,45 +278,29 @@ export async function removeCategory(
 }
 
 export async function fetchAuthSession() {
-  const response = await fetch(`${authApiBase}/session`, {
-    credentials: "same-origin",
-  });
+  const isAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) === "true";
 
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+  if (isAdmin) {
+    await syncLocalAuthSession("login", ADMIN_PASSWORD);
   }
 
-  return (await response.json()) as AuthSessionResponse;
+  return createAuthSession(isAdmin);
 }
 
 export async function loginAsAdmin(password: string) {
-  const response = await fetch(`${authApiBase}/login`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ password }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+  if (password !== ADMIN_PASSWORD) {
+    throw new Error("\u5bc6\u7801\u4e0d\u6b63\u786e\uff0c\u65e0\u6cd5\u8fdb\u5165\u7f16\u8f91\u6a21\u5f0f\u3002");
   }
 
-  return (await response.json()) as AuthSessionResponse;
+  sessionStorage.setItem(ADMIN_SESSION_KEY, "true");
+  await syncLocalAuthSession("login", password);
+  return createAuthSession(true);
 }
 
 export async function logoutAdmin() {
-  const response = await fetch(`${authApiBase}/logout`, {
-    method: "POST",
-    credentials: "same-origin",
-  });
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
-  }
-
-  return (await response.json()) as AuthSessionResponse;
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  await syncLocalAuthSession("logout");
+  return createAuthSession(false);
 }
 
 export async function parseEntryWithAi(
