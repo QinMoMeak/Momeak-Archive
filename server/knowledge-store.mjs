@@ -2,6 +2,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { getDatabase } from "./db/database.mjs";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = process.env.KNOWLEDGE_REPO_ROOT
   ? path.resolve(process.env.KNOWLEDGE_REPO_ROOT)
@@ -167,27 +169,6 @@ async function ensureDirectory(targetPath) {
   await fs.mkdir(targetPath, { recursive: true });
 }
 
-async function readJsonFile(filePath) {
-  const raw = await fs.readFile(filePath, "utf8");
-  return JSON.parse(raw);
-}
-
-async function writeJsonFile(filePath, value) {
-  await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
-
-async function deleteFileIfExists(filePath) {
-  try {
-    await fs.unlink(filePath);
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      return;
-    }
-
-    throw error;
-  }
-}
-
 function getContentFilePath(moduleId, entryId) {
   return path.join(contentDir, moduleId, `${entryId}.md`);
 }
@@ -196,12 +177,188 @@ function getPublicMarkdownPath(moduleId, entryId) {
   return `content/${moduleId}/${entryId}.md`;
 }
 
-async function readKnowledgeMeta() {
-  return readJsonFile(taxonomyFile);
+// ===== SQLite 行 ⇄ 条目对象转换 =====
+
+function rowToEntry(row) {
+  if (!row) {
+    return null;
+  }
+
+  return JSON.parse(row.payload);
 }
 
-async function writeKnowledgeMeta(meta) {
-  await writeJsonFile(taxonomyFile, meta);
+function rowsToEntries(rows) {
+  return rows.map((row) => rowToEntry(row));
+}
+
+const statements = new Map();
+
+function stmt(key, sql) {
+  if (!statements.has(key)) {
+    statements.set(key, getDatabase().prepare(sql));
+  }
+
+  return statements.get(key);
+}
+
+function selectModuleRows(moduleId) {
+  return stmt(
+    "select-module",
+    "SELECT * FROM entries WHERE module = ? ORDER BY position, rowid",
+  ).all(moduleId);
+}
+
+// ===== 镜像回写：SQLite 为唯一写入源，JSON/MD 文件在每次写后同步导出 =====
+// 前端静态回退（Pages 构建）在构建时 import data/*.json，因此这些文件
+// 必须持续反映数据库内容，保持 Pages 部署与 Git diff 工作流不变。
+
+async function mirrorModuleEntriesToFiles(moduleId) {
+  const entries = rowsToEntries(selectModuleRows(moduleId));
+  await fs.writeFile(dataFiles[moduleId], `${JSON.stringify(entries, null, 2)}\n`, "utf8");
+  return entries;
+}
+
+async function mirrorMarkdownToFiles(moduleId) {
+  const rows = stmt(
+    "select-markdowns",
+    "SELECT entry_id, content FROM markdowns WHERE module = ? ORDER BY entry_id",
+  ).all(moduleId);
+  const moduleDir = path.join(contentDir, moduleId);
+
+  await fs.rm(moduleDir, { recursive: true, force: true });
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  await ensureDirectory(moduleDir);
+
+  await Promise.all(
+    rows.map(({ entry_id, content }) =>
+      fs.writeFile(
+        getContentFilePath(moduleId, entry_id),
+        content.endsWith("\n") ? content : `${content}\n`,
+        "utf8",
+      ),
+    ),
+  );
+}
+
+async function mirrorTaxonomyToFiles() {
+  const row = stmt("select-taxonomy", "SELECT payload FROM taxonomy WHERE id = 1").get();
+
+  if (row) {
+    const parsed = JSON.parse(row.payload);
+    await fs.writeFile(taxonomyFile, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+  }
+}
+
+function upsertEntryRow(moduleId, entry, position) {
+  stmt(
+    "upsert-entry",
+    `INSERT INTO entries (module, id, name, category, status, tags, payload, created_at, updated_at, position)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (module, id) DO UPDATE SET
+       name = excluded.name,
+       category = excluded.category,
+       status = excluded.status,
+       tags = excluded.tags,
+       payload = excluded.payload,
+       created_at = excluded.created_at,
+       updated_at = excluded.updated_at,
+       position = excluded.position`,
+  ).run(
+    moduleId,
+    entry.id,
+    entry.name ?? "",
+    entry.category ?? "",
+    entry.status ?? "",
+    JSON.stringify(entry.tags ?? []),
+    JSON.stringify(entry),
+    entry.createdAt ?? "",
+    entry.updatedAt ?? "",
+    position,
+  );
+}
+
+function updateEntryRow(moduleId, entry) {
+  stmt(
+    "update-entry",
+    "UPDATE entries SET name = ?, category = ?, status = ?, tags = ?, payload = ?, updated_at = ? WHERE module = ? AND id = ?",
+  ).run(
+    entry.name ?? "",
+    entry.category ?? "",
+    entry.status ?? "",
+    JSON.stringify(entry.tags ?? []),
+    JSON.stringify(entry),
+    entry.updatedAt ?? "",
+    moduleId,
+    entry.id,
+  );
+}
+
+function getNextEntryIdFromList(moduleId, entries) {
+  const pattern = new RegExp(`^${moduleId}-(\\d+)$`);
+  const currentMax = entries.reduce((maxValue, entry) => {
+    const match = pattern.exec(entry.id);
+
+    if (!match) {
+      return maxValue;
+    }
+
+    return Math.max(maxValue, Number(match[1]));
+  }, 0);
+
+  const nextValue = currentMax + 1;
+  const nextWidth = Math.max(minIdWidth, String(nextValue).length);
+  return `${moduleId}-${String(nextValue).padStart(nextWidth, "0")}`;
+}
+
+function getNextEntryId(moduleId) {
+  return getNextEntryIdFromList(moduleId, rowsToEntries(selectModuleRows(moduleId)));
+}
+
+function writeMarkdownRow(moduleId, entryId, content) {
+  stmt(
+    "insert-markdown",
+    "INSERT OR REPLACE INTO markdowns (module, entry_id, content) VALUES (?, ?, ?)",
+  ).run(moduleId, entryId, content);
+}
+
+function deleteMarkdownRow(moduleId, entryId) {
+  stmt("delete-markdown", "DELETE FROM markdowns WHERE module = ? AND entry_id = ?").run(
+    moduleId,
+    entryId,
+  );
+}
+
+function withTransaction(run) {
+  const db = getDatabase();
+  db.exec("BEGIN");
+  try {
+    run();
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+function readKnowledgeMetaSync() {
+  const row = stmt("select-taxonomy", "SELECT payload FROM taxonomy WHERE id = 1").get();
+
+  if (!row) {
+    return { categories: {} };
+  }
+
+  return JSON.parse(row.payload);
+}
+
+function writeKnowledgeMetaSync(meta) {
+  stmt(
+    "upsert-taxonomy",
+    "INSERT OR REPLACE INTO taxonomy (id, payload) VALUES (1, ?)",
+  ).run(JSON.stringify(meta));
 }
 
 function ensureUniqueCategory(categories, targetName, ignoreName = "") {
@@ -218,12 +375,12 @@ function ensureUniqueCategory(categories, targetName, ignoreName = "") {
   }
 }
 
-async function ensureCategoryExists(moduleId, categoryName) {
+function ensureCategoryExistsSync(moduleId, categoryName) {
   if (!categoryName) {
     return;
   }
 
-  const meta = await readKnowledgeMeta();
+  const meta = readKnowledgeMetaSync();
   const currentCategories = meta.categories[moduleId] ?? [];
   const normalizedCategory = categoryName.toLocaleLowerCase();
 
@@ -234,24 +391,7 @@ async function ensureCategoryExists(moduleId, categoryName) {
   }
 
   meta.categories[moduleId] = [...currentCategories, categoryName];
-  await writeKnowledgeMeta(meta);
-}
-
-function getNextEntryId(moduleId, entries) {
-  const pattern = new RegExp(`^${moduleId}-(\d+)$`);
-  const currentMax = entries.reduce((maxValue, entry) => {
-    const match = pattern.exec(entry.id);
-
-    if (!match) {
-      return maxValue;
-    }
-
-    return Math.max(maxValue, Number(match[1]));
-  }, 0);
-
-  const nextValue = currentMax + 1;
-  const nextWidth = Math.max(minIdWidth, String(nextValue).length);
-  return `${moduleId}-${String(nextValue).padStart(nextWidth, "0")}`;
+  writeKnowledgeMetaSync(meta);
 }
 
 function normalizeDraft(moduleId, draft) {
@@ -433,78 +573,112 @@ function buildEntry(moduleId, draft, entryId) {
   };
 }
 
-export async function readModuleEntries(moduleId) {
+function readModuleEntriesSync(moduleId) {
   assertModuleId(moduleId);
-  return readJsonFile(dataFiles[moduleId]);
+  return rowsToEntries(selectModuleRows(moduleId));
+}
+
+export async function readModuleEntries(moduleId) {
+  return readModuleEntriesSync(moduleId);
+}
+
+export async function readKnowledgeEntry(moduleId, entryId) {
+  assertModuleId(moduleId);
+
+  const row = stmt(
+    "select-one",
+    "SELECT * FROM entries WHERE module = ? AND id = ?",
+  ).get(moduleId, entryId);
+
+  return rowToEntry(row);
 }
 
 export async function writeModuleEntries(moduleId, entries) {
   assertModuleId(moduleId);
-  await writeJsonFile(dataFiles[moduleId], entries);
+
+  withTransaction(() => {
+    stmt("delete-module-entries", "DELETE FROM entries WHERE module = ?").run(moduleId);
+
+    for (const [position, entry] of entries.entries()) {
+      upsertEntryRow(moduleId, entry, position);
+    }
+  });
+
+  await mirrorModuleEntriesToFiles(moduleId);
 }
 
 export async function readKnowledgeData() {
-  const results = await Promise.all(
-    moduleIds.map(async (moduleId) => [moduleId, await readModuleEntries(moduleId)]),
-  );
+  const results = moduleIds.map((moduleId) => [moduleId, readModuleEntriesSync(moduleId)]);
 
   return Object.fromEntries(results);
 }
 
-export { readKnowledgeMeta, writeKnowledgeMeta };
+export async function readKnowledgeMeta() {
+  return readKnowledgeMetaSync();
+}
+
+export async function writeKnowledgeMeta(meta) {
+  writeKnowledgeMetaSync(meta);
+  await mirrorTaxonomyToFiles();
+}
 
 export async function readMarkdownContent(moduleId, entryId) {
   assertModuleId(moduleId);
 
-  try {
-    return await fs.readFile(getContentFilePath(moduleId, entryId), "utf8");
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      return "";
-    }
+  const row = stmt(
+    "select-markdown",
+    "SELECT content FROM markdowns WHERE module = ? AND entry_id = ?",
+  ).get(moduleId, entryId);
 
-    throw error;
-  }
+  return row ? row.content : "";
 }
 
 export async function replaceModuleMarkdownContent(moduleId, markdownByEntryId) {
   assertModuleId(moduleId);
-  const moduleDir = path.join(contentDir, moduleId);
 
-  await fs.rm(moduleDir, { recursive: true, force: true });
+  withTransaction(() => {
+    stmt("delete-module-markdowns", "DELETE FROM markdowns WHERE module = ?").run(moduleId);
 
-  const entries = Object.entries(markdownByEntryId).filter(([, content]) => cleanMultilineText(content).length > 0);
+    const entriesToWrite = Object.entries(markdownByEntryId).filter(
+      ([, content]) => cleanMultilineText(content).length > 0,
+    );
 
-  if (entries.length === 0) {
-    return;
-  }
+    for (const [entryId, content] of entriesToWrite) {
+      writeMarkdownRow(moduleId, entryId, `${cleanMultilineText(content)}\n`);
+    }
+  });
 
-  await ensureDirectory(moduleDir);
+  await mirrorMarkdownToFiles(moduleId);
+}
 
-  await Promise.all(
-    entries.map(([entryId, content]) =>
-      fs.writeFile(getContentFilePath(moduleId, entryId), `${cleanMultilineText(content)}\n`, "utf8"),
-    ),
-  );
+function getMaxPosition(moduleId) {
+  const row = stmt(
+    "select-max-position",
+    "SELECT COALESCE(MAX(position), -1) AS maxPosition FROM entries WHERE module = ?",
+  ).get(moduleId);
+  return Number(row.maxPosition);
 }
 
 export async function createKnowledgeEntry(moduleId, draftInput) {
   assertModuleId(moduleId);
 
   const normalizedDraft = normalizeDraft(moduleId, draftInput);
-  const entries = await readModuleEntries(moduleId);
-  const entryId = getNextEntryId(moduleId, entries);
+  const entryId = getNextEntryId(moduleId);
   const entry = buildEntry(moduleId, normalizedDraft, entryId);
-  const nextEntries = [...entries, entry];
   const markdownContent = normalizedDraft.markdownContent;
 
-  await writeJsonFile(dataFiles[moduleId], nextEntries);
-  await ensureCategoryExists(moduleId, entry.category);
+  withTransaction(() => {
+    upsertEntryRow(moduleId, entry, getMaxPosition(moduleId) + 1);
+    ensureCategoryExistsSync(moduleId, entry.category);
+  });
 
   if (markdownContent) {
-    const moduleContentDir = path.join(contentDir, moduleId);
-    await ensureDirectory(moduleContentDir);
-    await fs.writeFile(getContentFilePath(moduleId, entryId), `${markdownContent}\n`, "utf8");
+    writeMarkdownRow(moduleId, entryId, `${markdownContent}\n`);
+  }
+
+  await mirrorModuleEntriesToFiles(moduleId);
+  if (markdownContent) {
+    await mirrorMarkdownToFiles(moduleId);
   }
 
   return {
@@ -517,22 +691,22 @@ export async function createKnowledgeEntry(moduleId, draftInput) {
 export async function createKnowledgeEntriesBatch(moduleId, draftInputs) {
   assertModuleId(moduleId);
 
-  const entries = await readModuleEntries(moduleId);
-  const nextEntries = [...entries];
   const createdEntries = [];
   const failures = [];
   const markdownWrites = [];
+
+  // 复用原有 ID 生成逻辑：在内存中累积模拟列表，避免批量内 ID 冲突。
+  const simulatedEntries = readModuleEntriesSync(moduleId);
 
   for (let index = 0; index < draftInputs.length; index += 1) {
     const draftInput = draftInputs[index];
 
     try {
       const normalizedDraft = normalizeDraft(moduleId, draftInput);
-      const entryId = getNextEntryId(moduleId, nextEntries);
+      const entryId = getNextEntryIdFromList(moduleId, simulatedEntries);
       const entry = buildEntry(moduleId, normalizedDraft, entryId);
-      nextEntries.push(entry);
+      simulatedEntries.push(entry);
       createdEntries.push(entry);
-      await ensureCategoryExists(moduleId, entry.category);
 
       if (normalizedDraft.markdownContent) {
         markdownWrites.push({ entryId, content: normalizedDraft.markdownContent });
@@ -547,14 +721,24 @@ export async function createKnowledgeEntriesBatch(moduleId, draftInputs) {
   }
 
   if (createdEntries.length > 0) {
-    await writeJsonFile(dataFiles[moduleId], nextEntries);
-    await ensureDirectory(path.join(contentDir, moduleId));
+    withTransaction(() => {
+      let position = getMaxPosition(moduleId);
 
-    await Promise.all(
-      markdownWrites.map(({ entryId, content }) =>
-        fs.writeFile(getContentFilePath(moduleId, entryId), `${content}\n`, "utf8"),
-      ),
-    );
+      for (const entry of createdEntries) {
+        position += 1;
+        upsertEntryRow(moduleId, entry, position);
+        ensureCategoryExistsSync(moduleId, entry.category);
+      }
+    });
+
+    for (const { entryId, content } of markdownWrites) {
+      writeMarkdownRow(moduleId, entryId, `${content}\n`);
+    }
+  }
+
+  await mirrorModuleEntriesToFiles(moduleId);
+  if (markdownWrites.length > 0) {
+    await mirrorMarkdownToFiles(moduleId);
   }
 
   return {
@@ -568,34 +752,35 @@ export async function updateKnowledgeEntry(moduleId, entryId, draftInput) {
   assertModuleId(moduleId);
 
   const normalizedDraft = normalizeDraft(moduleId, draftInput);
-  const entries = await readModuleEntries(moduleId);
-  const currentIndex = entries.findIndex((entry) => entry.id === entryId);
+  const currentRow = stmt(
+    "select-one",
+    "SELECT * FROM entries WHERE module = ? AND id = ?",
+  ).get(moduleId, entryId);
 
-  if (currentIndex === -1) {
+  if (!currentRow) {
     throw new Error("没有找到要更新的条目。");
   }
 
-  const currentEntry = entries[currentIndex];
+  const currentEntry = rowToEntry(currentRow);
   const updatedEntry = {
     ...buildEntry(moduleId, normalizedDraft, entryId),
     createdAt: currentEntry.createdAt,
     updatedAt: getToday(),
   };
 
-  const nextEntries = [...entries];
-  nextEntries[currentIndex] = updatedEntry;
-
-  await writeJsonFile(dataFiles[moduleId], nextEntries);
-  await ensureCategoryExists(moduleId, updatedEntry.category);
-
-  const markdownPath = getContentFilePath(moduleId, entryId);
+  withTransaction(() => {
+    updateEntryRow(moduleId, updatedEntry);
+    ensureCategoryExistsSync(moduleId, updatedEntry.category);
+  });
 
   if (normalizedDraft.markdownContent) {
-    await ensureDirectory(path.join(contentDir, moduleId));
-    await fs.writeFile(markdownPath, `${normalizedDraft.markdownContent}\n`, "utf8");
+    writeMarkdownRow(moduleId, entryId, `${normalizedDraft.markdownContent}\n`);
   } else {
-    await deleteFileIfExists(markdownPath);
+    deleteMarkdownRow(moduleId, entryId);
   }
+
+  await mirrorModuleEntriesToFiles(moduleId);
+  await mirrorMarkdownToFiles(moduleId);
 
   return {
     entry: updatedEntry,
@@ -607,20 +792,32 @@ export async function updateKnowledgeEntry(moduleId, entryId, draftInput) {
 export async function deleteKnowledgeEntry(moduleId, entryId) {
   assertModuleId(moduleId);
 
-  const entries = await readModuleEntries(moduleId);
-  const nextEntries = entries.filter((entry) => entry.id !== entryId);
+  const result = stmt(
+    "delete-entry",
+    "DELETE FROM entries WHERE module = ? AND id = ?",
+  ).run(moduleId, entryId);
 
-  if (nextEntries.length === entries.length) {
+  if (result.changes === 0) {
     throw new Error("没有找到要删除的条目。");
   }
 
-  await writeJsonFile(dataFiles[moduleId], nextEntries);
-  await deleteFileIfExists(getContentFilePath(moduleId, entryId));
+  // markdowns 外键 ON DELETE CASCADE 应已清理，这里兜底再删一次。
+  deleteMarkdownRow(moduleId, entryId);
+
+  await mirrorModuleEntriesToFiles(moduleId);
+  await mirrorMarkdownToFiles(moduleId);
 
   return {
     data: await readKnowledgeData(),
     deletedEntryId: entryId,
   };
+}
+
+function selectModuleCategoryRows(moduleId, categoryName) {
+  return stmt(
+    "select-module-category",
+    "SELECT * FROM entries WHERE module = ? AND category = ?",
+  ).all(moduleId, categoryName);
 }
 
 export async function createCategory(moduleId, nameInput) {
@@ -631,7 +828,7 @@ export async function createCategory(moduleId, nameInput) {
     throw new Error("分类名称不能为空。");
   }
 
-  const meta = await readKnowledgeMeta();
+  const meta = readKnowledgeMetaSync();
   const categories = meta.categories[moduleId] ?? [];
   ensureUniqueCategory(categories, name);
   meta.categories[moduleId] = [...categories, name];
@@ -649,7 +846,7 @@ export async function renameCategory(moduleId, oldNameInput, newNameInput) {
     throw new Error("旧分类和新分类名称都不能为空。");
   }
 
-  const meta = await readKnowledgeMeta();
+  const meta = readKnowledgeMetaSync();
   const categories = meta.categories[moduleId] ?? [];
 
   if (!categories.includes(oldName)) {
@@ -660,9 +857,19 @@ export async function renameCategory(moduleId, oldNameInput, newNameInput) {
   meta.categories[moduleId] = categories.map((category) => (category === oldName ? newName : category));
   await writeKnowledgeMeta(meta);
 
-  const entries = await readModuleEntries(moduleId);
-  const nextEntries = entries.map((entry) => (entry.category === oldName ? { ...entry, category: newName } : entry));
-  await writeJsonFile(dataFiles[moduleId], nextEntries);
+  const rows = selectModuleCategoryRows(moduleId, oldName);
+
+  if (rows.length > 0) {
+    withTransaction(() => {
+      for (const row of rows) {
+        const entry = rowToEntry(row);
+        entry.category = newName;
+        updateEntryRow(moduleId, entry);
+      }
+    });
+
+    await mirrorModuleEntriesToFiles(moduleId);
+  }
 
   return { data: await readKnowledgeData(), meta };
 }
@@ -676,17 +883,16 @@ export async function deleteCategory(moduleId, nameInput, replacementNameInput =
     throw new Error("请先选择要删除的分类。");
   }
 
-  const meta = await readKnowledgeMeta();
+  const meta = readKnowledgeMetaSync();
   const categories = meta.categories[moduleId] ?? [];
 
   if (!categories.includes(name)) {
     throw new Error("没有找到要删除的分类。");
   }
 
-  const entries = await readModuleEntries(moduleId);
-  const affectedEntries = entries.filter((entry) => entry.category === name);
+  const affectedRows = selectModuleCategoryRows(moduleId, name);
 
-  if (affectedEntries.length > 0) {
+  if (affectedRows.length > 0) {
     if (!replacementName) {
       throw new Error("该分类还有条目在使用，请先选择替换分类。");
     }
@@ -699,12 +905,19 @@ export async function deleteCategory(moduleId, nameInput, replacementNameInput =
       throw new Error("替换分类不存在。");
     }
 
-    const nextEntries = entries.map((entry) => (entry.category === name ? { ...entry, category: replacementName } : entry));
-    await writeJsonFile(dataFiles[moduleId], nextEntries);
+    withTransaction(() => {
+      for (const row of affectedRows) {
+        const entry = rowToEntry(row);
+        entry.category = replacementName;
+        updateEntryRow(moduleId, entry);
+      }
+    });
   }
 
   meta.categories[moduleId] = categories.filter((category) => category !== name);
   await writeKnowledgeMeta(meta);
+
+  await mirrorModuleEntriesToFiles(moduleId);
 
   return { data: await readKnowledgeData(), meta };
 }

@@ -8,6 +8,7 @@ import {
   deleteKnowledgeEntry,
   deleteCategory,
   readKnowledgeData,
+  readKnowledgeEntry,
   readKnowledgeMeta,
   readMarkdownContent,
   renameCategory,
@@ -550,8 +551,25 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (
+      request.method === "GET" &&
+      /^\/api\/knowledge\/(offline|shopping|websites|inbox|songs)\/[^/]+$/.test(url.pathname)
+    ) {
+      const [, , , moduleId, entryId] = url.pathname.split("/");
+      const entry = await readKnowledgeEntry(moduleId, entryId);
+
+      if (!entry) {
+        sendJson(response, 404, { error: "没有找到对应的条目。" });
+        return;
+      }
+
+      const markdown = await readMarkdownContent(moduleId, entryId);
+      sendJson(response, 200, { entry, markdown });
+      return;
+    }
+
+    if (
       request.method === "PUT" &&
-      /^\/api\/knowledge\/(offline|shopping|websites|inbox)\/[^/]+$/.test(url.pathname)
+      /^\/api\/knowledge\/(offline|shopping|websites|inbox|songs)\/[^/]+$/.test(url.pathname)
     ) {
       requireAdmin(request);
       const [, , , moduleId, entryId] = url.pathname.split("/");
@@ -568,7 +586,7 @@ const server = http.createServer(async (request, response) => {
 
     if (
       request.method === "DELETE" &&
-      /^\/api\/knowledge\/(offline|shopping|websites|inbox)\/[^/]+$/.test(url.pathname)
+      /^\/api\/knowledge\/(offline|shopping|websites|inbox|songs)\/[^/]+$/.test(url.pathname)
     ) {
       requireAdmin(request);
       const [, , , moduleId, entryId] = url.pathname.split("/");
